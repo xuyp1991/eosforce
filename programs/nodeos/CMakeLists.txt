@@ -67,7 +67,7 @@ target_link_libraries( ${NODE_EXECUTABLE_NAME}
 if(BUILD_MONGO_DB_PLUGIN)
   target_link_libraries( ${NODE_EXECUTABLE_NAME} PRIVATE -Wl,${whole_archive_flag} mongo_db_plugin -Wl,${no_whole_archive_flag} )
 endif()
-
+target_link_libraries( ${NODE_EXECUTABLE_NAME} PRIVATE -Wl,${whole_archive_flag} elasticsearch_plugin -Wl,${no_whole_archive_flag} )
 include(additionalPlugins)
 
 install( TARGETS
