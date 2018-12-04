@@ -410,6 +410,8 @@ void mongo_db_plugin_impl::consume_blocks() {
       _pub_keys = mongo_conn[db_name][pub_keys_col];
       _account_controls = mongo_conn[db_name][account_controls_col];
 
+      insert_default_abi();
+
       while (true) {
          boost::mutex::scoped_lock lock(mtx);
          while ( transaction_metadata_queue.empty() &&
@@ -1407,13 +1409,13 @@ void mongo_db_plugin_impl::insert_default_abi()
                                  .owner    = authority( get_public_key( name_account, "owner" ) ),
                                  .active   = authority( get_public_key( name_account, "active" ) )
                                  };
-         create_account( accounts, name_account, now );
+         create_account( _accounts, name_account, now );
          add_pub_keys( newacc.owner.keys, name_account, owner, now );
          add_account_control( newacc.owner.accounts, name_account, owner, now );
          add_pub_keys( newacc.active.keys, name_account, active, now );
          add_account_control( newacc.active.accounts, name_account, active, now ); 
 
-         auto account = find_account( accounts, name_account );
+         auto account = find_account( _accounts, name_account );
          auto abiPath = app().config_dir() / "eosio.token" += ".abi";
          FC_ASSERT( fc::exists( abiPath ), "no abi file found ");
          auto abijson = fc::json::from_file(abiPath).as<abi_def>();
@@ -1426,7 +1428,7 @@ void mongo_db_plugin_impl::insert_default_abi()
                                                  kvp( "updatedAt", b_date{now} ))));
 
                try {
-                  if( !accounts.update_one( make_document( kvp( "_id", account->view()["_id"].get_oid())),
+                  if( !_accounts.update_one( make_document( kvp( "_id", account->view()["_id"].get_oid())),
                                             update_from.view())) {
                      EOS_ASSERT( false, chain::mongo_db_update_fail, "Failed to udpdate account ${n}", ("n", name_account));
                   }
@@ -1444,7 +1446,7 @@ void mongo_db_plugin_impl::insert_default_abi()
          abi_cache_index.erase( name_account );
          //std::string strContract01("System01");
          //std::string strContract("System");   
-         auto account = find_account( accounts, name_account );
+         auto account = find_account( _accounts, name_account );
          fc::path abiPath;
          if(b_use_system01)
          { abiPath = app().config_dir() / "System01" += ".abi"; }
@@ -1462,7 +1464,7 @@ void mongo_db_plugin_impl::insert_default_abi()
                                                  kvp( "updatedAt", b_date{now} ))));
 
                try {
-                  if( !accounts.update_one( make_document( kvp( "_id", account->view()["_id"].get_oid())),
+                  if( !_accounts.update_one( make_document( kvp( "_id", account->view()["_id"].get_oid())),
                                             update_from.view())) {
                      EOS_ASSERT( false, chain::mongo_db_update_fail, "Failed to udpdate account ${n}", ("n", name_account));
                   }
@@ -1552,7 +1554,7 @@ void mongo_db_plugin_impl::init() {
    }
 
    ilog("starting db plugin thread");
-   insert_default_abi();
+   
    consume_thread = boost::thread([this] { consume_blocks(); });
 
    startup = false;
