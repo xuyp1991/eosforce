@@ -3,8 +3,13 @@ ARG branch=master
 
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get -y install openssl ssh && rm -rf /var/lib/apt/lists/*
 
-RUN git clone https://github.com/eosforce/eosforce.git --recursive \
-    && cd eosforce && echo "$branch:$(git rev-parse HEAD)" > /etc/eosforce-version && git submodule update --init --recursive \
+RUN git clone https://github.com/xuyp1991/eosforce.git --recursive \
+    && git clone https://github.com/WLBF/elasticlient.git --recursive \
+    && cd elasticlient && cmake -DBUILD_ELASTICLIENT_TESTS=NO -DBUILD_ELASTICLIENT_EXAMPLE=NO \
+    && make && sudo make install && cp -r "external/cpr/include/cpr" "/usr/local/include/cpr" && cp "lib/libcpr.so" "/usr/local/lib/libcpr.so" \
+    && cd ../eosforce/plugins && git clone https://github.com/xuyp1991/elasticsearch_plugin.git --recursive\
+    && cd .. \
+    && echo "$branch:$(git rev-parse HEAD)" > /etc/eosforce-version && git submodule update --init --recursive \
     && cmake -H. -B"/tmp/build" -GNinja -DCMAKE_BUILD_TYPE=Release -DWASM_ROOT=/opt/wasm -DCMAKE_CXX_COMPILER=clang++ \
        -DCMAKE_C_COMPILER=clang -DCMAKE_INSTALL_PREFIX=/tmp/build  -DSecp256k1_ROOT_DIR=/usr/local -DBUILD_MONGO_DB_PLUGIN=true \
     && cmake --build /tmp/build --target install
