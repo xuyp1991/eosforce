@@ -409,9 +409,7 @@ void mongo_db_plugin_impl::consume_blocks() {
       _block_states = mongo_conn[db_name][block_states_col];
       _pub_keys = mongo_conn[db_name][pub_keys_col];
       _account_controls = mongo_conn[db_name][account_controls_col];
-
       insert_default_abi();
-
       while (true) {
          boost::mutex::scoped_lock lock(mtx);
          while ( transaction_metadata_queue.empty() &&
@@ -455,7 +453,9 @@ void mongo_db_plugin_impl::consume_blocks() {
          auto size = transaction_trace_process_queue.size();
          while (!transaction_trace_process_queue.empty()) {
             const auto& t = transaction_trace_process_queue.front();
+          //  ilog("xuyapeng add for test before process_applied_transaction");
             process_applied_transaction(t);
+          //  ilog("xuyapeng add for test after process_applied_transaction");
             transaction_trace_process_queue.pop_front();
          }
          auto time = fc::time_point::now() - start_time;
@@ -467,7 +467,9 @@ void mongo_db_plugin_impl::consume_blocks() {
          size = transaction_metadata_process_queue.size();
          while (!transaction_metadata_process_queue.empty()) {
             const auto& t = transaction_metadata_process_queue.front();
+          //  ilog("xuyapeng add for test before process_accepted_transaction");
             process_accepted_transaction(t);
+          //  ilog("xuyapeng add for test after process_accepted_transaction");
             transaction_metadata_process_queue.pop_front();
          }
          time = fc::time_point::now() - start_time;
@@ -480,7 +482,9 @@ void mongo_db_plugin_impl::consume_blocks() {
          size = block_state_process_queue.size();
          while (!block_state_process_queue.empty()) {
             const auto& bs = block_state_process_queue.front();
+         //   ilog("xuyapeng add for test before process_accepted_block");
             process_accepted_block( bs );
+         //   ilog("xuyapeng add for test after process_accepted_block");
             block_state_process_queue.pop_front();
          }
          time = fc::time_point::now() - start_time;
@@ -493,7 +497,9 @@ void mongo_db_plugin_impl::consume_blocks() {
          size = irreversible_block_state_process_queue.size();
          while (!irreversible_block_state_process_queue.empty()) {
             const auto& bs = irreversible_block_state_process_queue.front();
+          //  ilog("xuyapeng add for test before process_irreversible_block");
             process_irreversible_block(bs);
+           // ilog("xuyapeng add for test after process_irreversible_block");
             irreversible_block_state_process_queue.pop_front();
          }
          time = fc::time_point::now() - start_time;
@@ -1451,7 +1457,7 @@ void mongo_db_plugin_impl::insert_default_abi()
          if(b_use_system01)
          { abiPath = app().config_dir() / "System01" += ".abi"; }
          else
-         { abiPath = app().config_dir() / "System" += ".abi"; }
+         { abiPath = app().config_dir() / "System02" += ".abi"; }
          
          FC_ASSERT( fc::exists( abiPath ), "no abi file found ");
          auto abijson = fc::json::from_file(abiPath).as<abi_def>();
@@ -1554,7 +1560,7 @@ void mongo_db_plugin_impl::init() {
    }
 
    ilog("starting db plugin thread");
-   
+
    consume_thread = boost::thread([this] { consume_blocks(); });
 
    startup = false;

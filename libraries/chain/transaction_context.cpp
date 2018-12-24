@@ -7,6 +7,7 @@
 #include <eosio/chain/transaction_object.hpp>
 #include <eosio/chain/global_property_object.hpp>
 #include <eosio/chain/txfee_manager.hpp>
+#include <eosio/chain/config_on_chain.hpp>
 
 #pragma push_macro("N")
 #undef N
@@ -27,7 +28,7 @@ namespace bacc = boost::accumulators;
    struct deadline_timer_verify {
       deadline_timer_verify() {
          //keep longest first in list. You're effectively going to take test_intervals[0]*sizeof(test_intervals[0])
-         //time to do the the "calibration" 
+         //time to do the the "calibration"
          int test_intervals[] = {50000, 10000, 5000, 1000, 500, 100, 50, 10};
 
          struct sigaction act;
@@ -315,7 +316,7 @@ namespace bacc = boost::accumulators;
       if (!control.skip_trx_checks()) {
          control.validate_expiration(trx);
          control.validate_tapos(trx);
-         control.validate_referenced_accounts(trx);
+         validate_referenced_accounts( trx, enforce_whiteblacklist && control.is_producing_block() );
       }
       init( initial_net_usage);
       if (!skip_recording)
@@ -330,56 +331,25 @@ namespace bacc = boost::accumulators;
       init( 0 );
    }
 
+   // make_fee_act insert onfee act in trx
+   void transaction_context::make_fee_act( const asset& require_fee ) {
+      EOS_ASSERT(!trx.actions[0].authorization.empty(), transaction_exception, "authorization empty");
+      fee_payer = trx.actions[0].authorization[0].actor;
+      max_fee_to_pay = require_fee; // it will work in next version
+      EOS_ASSERT(fee_payer != name{}, transaction_exception, "fee_payer nil");
+   }
+
    // limit by contract from actions
    // fee_ext ext fee for ext res
    void transaction_context::make_limit_by_contract(const asset &fee_ext){
       // now one trx just has one action in eosforce, so it can no include system contract
-      /*
-       * About Fee
-       *
-       * fee come from three mode:
-       *  - native, set in cpp
-       *  - set by eosio
-       *  - set by user
-       *
-       * and res limit can set a value or zero,
-       * all of this will make diff mode to calc res limit,
-       * support 1.0 EOS is for `C` cpu, `N` net and `R` ram,
-       * and cost fee by `f` EOS and extfee by `F` EOS
-       *
-       * then can give:
-       *  - native and no setfee : use native fee and unlimit res use
-       *  - eosio set fee {f, (c,n,r)}
-       *      (cpu_limit, net_limit, ram_limit) == (c + F*C, n + F*N, r + F*R)
-       *  - eosio set fee {f, (0,0,0)}
-       *      (cpu_limit, net_limit, ram_limit) == ((f+F)*C, (f+F)*N, (f+F)*R)
-       *  - user set fee {f, (0,0,0)}, user cannot set fee by c>0||n>0||r>0
-       *      (cpu_limit, net_limit, ram_limit) == ((f+F)*C, (f+F)*N, (f+F)*R)
-       *
-       *  so it can be check by:
-       *  if no setfee
-       *       if no native -> err
-       *       if native -> use native and unlimit res use
-       *  else
-       *       if res limit is (0,0,0) -> limit res by ((f+F)*C, (f+F)*N, (f+F)*R)
-       *       if res limit is (c,n,r) -> (c + F*C, n + F*N, r + F*R)
-       *
-       *  at the same time, eosio can set res limit > (0,0,0) and user cannot
-       *
-       */
 
       auto &db = control.db();
-
-      if ( fee_ext > asset(0) ) {
-         dlog( "use fee ext ${f} to x ${c}",
-               ("f", fee_ext)("c", fee_ext.get_amount() / 100) );
-      }
 
       // use_limit_by_contract is if setfee
       use_limit_by_contract = false;
       cpu_limit_by_contract = 0;
       net_limit_by_contract = 0;
-      ram_limit_by_contract = 0;
       auto calc_res_fee = fee_ext;
 
       // all setfee action calc sum res limit
@@ -404,7 +374,6 @@ namespace bacc = boost::accumulators;
             //      ("con", act.name)("cpu", info->cpu_limit)("net", info->net_limit)("ram", info->ram_limit));
             cpu_limit_by_contract += info->cpu_limit;
             net_limit_by_contract += info->net_limit;
-            ram_limit_by_contract += info->ram_limit;
          } else {
             // setfee with zero res limit
             // calc res limit like fee_ext
@@ -417,14 +386,79 @@ namespace bacc = boost::accumulators;
          //
          // For First version we just use const value for main net stable
          //
-         cpu_limit_by_contract += m * 100; // TODO use num in state db
-         net_limit_by_contract += m * 10000;
-         ram_limit_by_contract += m * 10;
+         cpu_limit_by_contract += m * get_num_config_on_chain(db, config::res_typ::cpu_per_fee, 100);
+         net_limit_by_contract += m * get_num_config_on_chain(db, config::res_typ::net_per_fee, 10000);
+      }
+   }
+
+   void transaction_context::add_limit_by_fee( const action &act ) {
+      auto &db = control.db();
+      const auto info = db.find<action_fee_object, by_action_name>(
+            boost::make_tuple(act.account, act.name));
+
+      uint64_t cpu_limit_by_act = 0;
+      uint64_t net_limit_by_act = 0;
+
+      // no setfee, is native or err by get_require_fee
+      if( info == nullptr ) {
+         //ilog("limit res ${acc}:${act} nil",
+         //     ("acc", act.account)("act", act.name));
+         return;
       }
 
-      if ( use_limit_by_contract ) {
-         dlog("limit by contract ${cpu} ${net} ${ram}",
-              ("cpu", cpu_limit_by_contract)("net", net_limit_by_contract)("ram", ram_limit_by_contract));
+      // setfee, if a trx has both native act and setfee act, will use res limit
+      use_limit_by_contract = true;
+
+      if(    (info->cpu_limit > 0)
+          || (info->net_limit > 0) ) {
+         // setfee with res limit
+         cpu_limit_by_act = info->cpu_limit;
+         net_limit_by_act = info->net_limit;
+      } else {
+         // setfee with zero res limit
+         // calc res limit like fee_ext
+         const auto m = info->fee.get_amount() / 100; // 100 mine 0.01 eos
+         //
+         // For First version we just use const value for main net stable
+         //
+         cpu_limit_by_act = m * get_num_config_on_chain(db, config::res_typ::cpu_per_fee, 200);
+         net_limit_by_act = m * get_num_config_on_chain(db, config::res_typ::net_per_fee, 512);
+      }
+
+      cpu_limit_by_contract += cpu_limit_by_act;
+      net_limit_by_contract += net_limit_by_act;
+
+      /*
+      dlog("limit res ${acc}:${act} ${fee} to ${cpu},${net} in ${cpus},${nets}",
+            ("acc", act.account)("act", act.name)
+            ("fee", info->fee)
+            ("cpu", cpu_limit_by_act)("net", net_limit_by_act)
+            ("cpus", cpu_limit_by_contract)("nets", net_limit_by_contract));
+      */
+   }
+
+   const action transaction_context::mk_fee_action( const action& act ) {
+      const auto fee = control.get_txfee_manager().get_required_fee(control, act);
+      const bytes param_data = fc::raw::pack(fee_paramter{
+            fee_payer, fee, name{}
+      });
+      return action{
+            vector<permission_level>{{fee_payer, config::active_name}},
+            config::system_account_name,
+            N(onfee),
+            param_data,
+      };
+   }
+
+   void transaction_context::dispatch_fee_action( vector<action_trace>& action_traces, const action& act ){
+      // if fee_payer is nil, it is mean now is not pay fee by action
+      if(fee_payer != name{}) {
+         action_traces.emplace_back();
+         const auto& fee_act = mk_fee_action(act);
+         // for lock developer 's EOSC before lock genesis user 's EOSC
+         EOS_ASSERT(get_num_config_on_chain(control.db(), name{fee_payer}, -1) != 1, transaction_exception, "locked developer EOSC account");
+         add_limit_by_fee(act);
+         dispatch_action(action_traces.back(), fee_act);
       }
    }
 
@@ -433,6 +467,8 @@ namespace bacc = boost::accumulators;
 
       if( apply_context_free ) {
          for( const auto& act : trx.context_free_actions ) {
+            // to cost fee for action
+            dispatch_fee_action( trace->action_traces, act );
             trace->action_traces.emplace_back();
             dispatch_action( trace->action_traces.back(), act, true );
          }
@@ -440,6 +476,8 @@ namespace bacc = boost::accumulators;
 
       if( delay == fc::microseconds() ) {
          for( const auto& act : trx.actions ) {
+            // to cost fee for action
+            dispatch_fee_action( trace->action_traces, act );
             trace->action_traces.emplace_back();
             dispatch_action( trace->action_traces.back(), act );
          }
@@ -499,16 +537,15 @@ namespace bacc = boost::accumulators;
 
       validate_cpu_usage_to_bill( billed_cpu_time_us );
 
-      if(use_limit_by_contract) {
-         EOS_ASSERT(billed_cpu_time_us <= cpu_limit_by_contract, transaction_exception,
-               "cpu limit by contract ${c} ${m}", ("c", billed_cpu_time_us)("m", cpu_limit_by_contract));
-         EOS_ASSERT(net_limit <= net_limit_by_contract, transaction_exception,
-               "net limit by contract ${c} ${m}", ("c", net_limit)("m", net_limit_by_contract));
-      }
+      // to check cpu and net limit gen by fee
+      if( use_limit_by_contract ) {
+         EOS_ASSERT(billed_cpu_time_us <= cpu_limit_by_contract, tx_cpu_usage_exceeded,
+               "cpu limit by contract ${c} ${m}",
+               ("c", billed_cpu_time_us)("m", cpu_limit_by_contract));
+         EOS_ASSERT(net_usage <= net_limit_by_contract, tx_net_usage_exceeded, "net limit by contract ${c} ${m}",
+               ("c", net_usage)("m", net_limit_by_contract));
 
-      //for(const auto &bill : bill_to_accounts) {
-      //   dlog("use res ${acc} ${cpu} ${net}", ("acc", bill)("cpu", billed_cpu_time_us)("net", net_usage));
-      //}
+      }
 
       rl.add_transaction_usage( bill_to_accounts, static_cast<uint64_t>(billed_cpu_time_us), net_usage,
                                 block_timestamp_type(control.pending_block_time()).slot ); // Should never fail
@@ -639,15 +676,6 @@ namespace bacc = boost::accumulators;
       if( ram_delta > 0 ) {
          validate_ram_usage.insert( account );
       }
-
-      // for ram test one trx
-      ram_used_by_trx += ram_delta;
-
-      if(use_limit_by_contract){
-         EOS_ASSERT(((ram_used_by_trx < 0) || (static_cast<uint64_t >(ram_used_by_trx) <= ram_limit_by_contract)), ram_usage_exceeded,
-               "account ${acc} limit contract use too much ram ${r} ${m}",
-               ("acc", account)("r", ram_used_by_trx)("m", ram_limit_by_contract));
-      }
    }
 
    uint32_t transaction_context::update_billed_cpu_time( fc::time_point now ) {
@@ -733,6 +761,44 @@ namespace bacc = boost::accumulators;
                      "duplicate transaction ${id}", ("id", id ) );
       }
    } /// record_transaction
+
+   void transaction_context::validate_referenced_accounts( const transaction& trx, bool enforce_actor_whitelist_blacklist )const {
+      const auto& db = control.db();
+      const auto& auth_manager = control.get_authorization_manager();
+
+      for( const auto& a : trx.context_free_actions ) {
+         auto* code = db.find<account_object, by_name>(a.account);
+         EOS_ASSERT( code != nullptr, transaction_exception,
+                     "action's code account '${account}' does not exist", ("account", a.account) );
+         EOS_ASSERT( a.authorization.size() == 0, transaction_exception,
+                     "context-free actions cannot have authorizations" );
+      }
+
+      flat_set<account_name> actors;
+
+      bool one_auth = false;
+      for( const auto& a : trx.actions ) {
+         auto* code = db.find<account_object, by_name>(a.account);
+         EOS_ASSERT( code != nullptr, transaction_exception,
+                     "action's code account '${account}' does not exist", ("account", a.account) );
+         for( const auto& auth : a.authorization ) {
+            one_auth = true;
+            auto* actor = db.find<account_object, by_name>(auth.actor);
+            EOS_ASSERT( actor  != nullptr, transaction_exception,
+                        "action's authorizing actor '${account}' does not exist", ("account", auth.actor) );
+            EOS_ASSERT( auth_manager.find_permission(auth) != nullptr, transaction_exception,
+                        "action's authorizations include a non-existent permission: {permission}",
+                        ("permission", auth) );
+            if( enforce_actor_whitelist_blacklist )
+               actors.insert( auth.actor );
+         }
+      }
+      EOS_ASSERT( one_auth, tx_no_auths, "transaction must have at least one authorization" );
+
+      if( enforce_actor_whitelist_blacklist ) {
+         control.check_actor_list( actors );
+      }
+   }
 
 
 } } /// eosio::chain

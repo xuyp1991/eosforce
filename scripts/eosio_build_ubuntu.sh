@@ -204,7 +204,7 @@
 	fi
 
 	printf "\\n\\tChecking MongoDB installation.\\n"
-    if [ ! -e "${MONGOD_CONF}" ]; then
+    if [  -e "${MONGOD_CONF}" ]; then
 		printf "\\n\\tInstalling MongoDB 3.6.3.\\n"
 		if ! cd "${HOME}/opt"
 		then
