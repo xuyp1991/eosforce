@@ -1487,6 +1487,7 @@ void mongo_db_plugin_impl::insert_default_abi()
       b_insert_default_abi = true;
 }
 
+      account_name name_account = N(eosio.token);
 void mongo_db_plugin_impl::init() {
    using namespace bsoncxx::types;
    using bsoncxx::builder::basic::make_document;
