@@ -46,7 +46,9 @@ using controller_index_set = index_set<
    block_summary_multi_index,
    transaction_multi_index,
    generated_transaction_multi_index,
-   table_id_multi_index
+   table_id_multi_index,
+   action_fee_object_index,
+   config_data_object_index
 >;
 
 using contract_database_index_set = index_set<
@@ -449,8 +451,8 @@ struct controller_impl {
       controller_index_set::add_indices(db);
       contract_database_index_set::add_indices(db);
 
-      db.add_index<action_fee_object_index>();
-      db.add_index<config_data_object_index>();
+      //db.add_index<action_fee_object_index>();
+      //db.add_index<config_data_object_index>();
 
       authorization.add_indices();
       resource_limits.add_indices();
@@ -1393,6 +1395,18 @@ struct controller_impl {
       // when vote4ram open, change to 8kb per user
       if( is_func_open_in_curr_block(self, config::func_typ::vote_for_ram) ) {
          set_num_config_on_chain(db, config::res_typ::free_ram_per_account, 8 * 1024);
+      }
+
+       // when on the specific block : create eosio account in table accounts of eosio system contract
+      if (is_func_has_open(self, config::func_typ::create_eosio_account, 5814500)) {
+         auto db = memory_db(self);
+         memory_db::account_info acc;
+         if (!db.get(config::system_account_name, config::system_account_name, N(accounts),
+                     config::system_account_name, acc)) {
+            db.insert(config::system_account_name, config::system_account_name, N(accounts),
+                      config::system_account_name,
+                      memory_db::account_info{config::system_account_name, eosio::chain::asset(0)});
+         }
       }
    }
 
