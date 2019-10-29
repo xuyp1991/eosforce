@@ -50,22 +50,22 @@ using chain::packed_transaction;
 
 static appbase::abstract_plugin& _mongo_match_plugin = app().register_plugin<mongo_match_plugin>();
 
-struct filter_entry {
-   name receiver;
-   name action;
-   name actor;
+// struct filter_entry {
+//    name receiver;
+//    name action;
+//    name actor;
 
-   friend bool operator<( const filter_entry& a, const filter_entry& b ) {
-      return std::tie( a.receiver, a.action, a.actor ) < std::tie( b.receiver, b.action, b.actor );
-   }
+//    friend bool operator<( const filter_entry& a, const filter_entry& b ) {
+//       return std::tie( a.receiver, a.action, a.actor ) < std::tie( b.receiver, b.action, b.actor );
+//    }
 
-   //            receiver          action       actor
-   bool match( const name& rr, const name& an, const name& ar ) const {
-      return (receiver.value == 0 || receiver == rr) &&
-             (action.value == 0 || action == an) &&
-             (actor.value == 0 || actor == ar);
-   }
-};
+//    //            receiver          action       actor
+//    bool match( const name& rr, const name& an, const name& ar ) const {
+//       return (receiver.value == 0 || receiver == rr) &&
+//              (action.value == 0 || action == an) &&
+//              (actor.value == 0 || actor == ar);
+//    }
+// };
 
 class mongo_match_plugin_impl {
 public:
@@ -117,9 +117,9 @@ public:
    bool b_use_system01 = false;
 
    /// @return true if act should be added to mongodb, false to skip it
-   bool filter_include( const account_name& receiver, const action_name& act_name,
-                        const vector<chain::permission_level>& authorization ) const;
-   bool filter_include( const transaction& trx ) const;
+   // bool filter_include( const account_name& receiver, const action_name& act_name,
+   //                      const vector<chain::permission_level>& authorization ) const;
+   // bool filter_include( const transaction& trx ) const;
 
    void init();
    void wipe_database();
@@ -134,8 +134,8 @@ public:
 
    bool is_producer = false;
    bool filter_on_star = true;
-   std::set<filter_entry> filter_on;
-   std::set<filter_entry> filter_out;
+   // std::set<filter_entry> filter_on;
+   // std::set<filter_entry> filter_out;
    bool update_blocks_via_block_num = false;
    bool store_blocks = true;
    bool store_block_states = true;
@@ -228,71 +228,71 @@ const std::string mongo_match_plugin_impl::accounts_col = "accounts";
 const std::string mongo_match_plugin_impl::pub_keys_col = "pub_keys";
 const std::string mongo_match_plugin_impl::account_controls_col = "account_controls";
 
-bool mongo_match_plugin_impl::filter_include( const account_name& receiver, const action_name& act_name,
-                                           const vector<chain::permission_level>& authorization ) const
-{
-   bool include = false;
-   if( filter_on_star ) {
-      include = true;
-   } else {
-      auto itr = std::find_if( filter_on.cbegin(), filter_on.cend(), [&receiver, &act_name]( const auto& filter ) {
-         return filter.match( receiver, act_name, 0 );
-      } );
-      if( itr != filter_on.cend() ) {
-         include = true;
-      } else {
-         for( const auto& a : authorization ) {
-            auto itr = std::find_if( filter_on.cbegin(), filter_on.cend(), [&receiver, &act_name, &a]( const auto& filter ) {
-               return filter.match( receiver, act_name, a.actor );
-            } );
-            if( itr != filter_on.cend() ) {
-               include = true;
-               break;
-            }
-         }
-      }
-   }
+// bool mongo_match_plugin_impl::filter_include( const account_name& receiver, const action_name& act_name,
+//                                            const vector<chain::permission_level>& authorization ) const
+// {
+//    bool include = false;
+//    if( filter_on_star ) {
+//       include = true;
+//    } else {
+//       auto itr = std::find_if( filter_on.cbegin(), filter_on.cend(), [&receiver, &act_name]( const auto& filter ) {
+//          return filter.match( receiver, act_name, 0 );
+//       } );
+//       if( itr != filter_on.cend() ) {
+//          include = true;
+//       } else {
+//          for( const auto& a : authorization ) {
+//             auto itr = std::find_if( filter_on.cbegin(), filter_on.cend(), [&receiver, &act_name, &a]( const auto& filter ) {
+//                return filter.match( receiver, act_name, a.actor );
+//             } );
+//             if( itr != filter_on.cend() ) {
+//                include = true;
+//                break;
+//             }
+//          }
+//       }
+//    }
 
-   if( !include ) { return false; }
-   if( filter_out.empty() ) { return true; }
+//    if( !include ) { return false; }
+//    if( filter_out.empty() ) { return true; }
 
-   auto itr = std::find_if( filter_out.cbegin(), filter_out.cend(), [&receiver, &act_name]( const auto& filter ) {
-      return filter.match( receiver, act_name, 0 );
-   } );
-   if( itr != filter_out.cend() ) { return false; }
+//    auto itr = std::find_if( filter_out.cbegin(), filter_out.cend(), [&receiver, &act_name]( const auto& filter ) {
+//       return filter.match( receiver, act_name, 0 );
+//    } );
+//    if( itr != filter_out.cend() ) { return false; }
 
-   for( const auto& a : authorization ) {
-      auto itr = std::find_if( filter_out.cbegin(), filter_out.cend(), [&receiver, &act_name, &a]( const auto& filter ) {
-         return filter.match( receiver, act_name, a.actor );
-      } );
-      if( itr != filter_out.cend() ) { return false; }
-   }
+//    for( const auto& a : authorization ) {
+//       auto itr = std::find_if( filter_out.cbegin(), filter_out.cend(), [&receiver, &act_name, &a]( const auto& filter ) {
+//          return filter.match( receiver, act_name, a.actor );
+//       } );
+//       if( itr != filter_out.cend() ) { return false; }
+//    }
 
-   return true;
-}
+//    return true;
+// }
 
-bool mongo_match_plugin_impl::filter_include( const transaction& trx ) const
-{
-   if( !filter_on_star || !filter_out.empty() ) {
-      bool include = false;
-      for( const auto& a : trx.actions ) {
-         if( filter_include( a.account, a.name, a.authorization ) ) {
-            include = true;
-            break;
-         }
-      }
-      if( !include ) {
-         for( const auto& a : trx.context_free_actions ) {
-            if( filter_include( a.account, a.name, a.authorization ) ) {
-               include = true;
-               break;
-            }
-         }
-      }
-      return include;
-   }
-   return true;
-}
+// bool mongo_match_plugin_impl::filter_include( const transaction& trx ) const
+// {
+//    if( !filter_on_star || !filter_out.empty() ) {
+//       bool include = false;
+//       for( const auto& a : trx.actions ) {
+//          if( filter_include( a.account, a.name, a.authorization ) ) {
+//             include = true;
+//             break;
+//          }
+//       }
+//       if( !include ) {
+//          for( const auto& a : trx.context_free_actions ) {
+//             if( filter_include( a.account, a.name, a.authorization ) ) {
+//                include = true;
+//                break;
+//             }
+//          }
+//       }
+//       return include;
+//    }
+//    return true;
+// }
 
 
 template<typename Queue, typename Entry>
@@ -755,7 +755,7 @@ void mongo_match_plugin_impl::_process_accepted_transaction( const chain::transa
 
    const signed_transaction& trx = t->packed_trx->get_signed_transaction();
 
-   if( !filter_include( trx ) ) return;
+   // if( !filter_include( trx ) ) return;
 
    auto trans_doc = bsoncxx::builder::basic::document{};
 
@@ -832,49 +832,50 @@ mongo_match_plugin_impl::add_action_trace( mongocxx::bulk_write& bulk_action_tra
                                         bool executed, const std::chrono::milliseconds& now,
                                         bool& write_ttrace )
 {
-   using namespace bsoncxx::types;
-   using bsoncxx::builder::basic::kvp;
+   // using namespace bsoncxx::types;
+   // using bsoncxx::builder::basic::kvp;
 
-   if( executed && atrace.receiver == chain::config::system_account_name ) {
-      update_account( atrace.act );
-   }
+   // if( executed && atrace.receiver == chain::config::system_account_name ) {
+   //    update_account( atrace.act );
+   // }
 
-   bool added = false;
-   const bool in_filter = (store_action_traces || store_transaction_traces) && start_block_reached &&
-                    filter_include( atrace.receiver, atrace.act.name, atrace.act.authorization );
-   write_ttrace |= in_filter;
-   if( start_block_reached && store_action_traces && in_filter ) {
-      auto action_traces_doc = bsoncxx::builder::basic::document{};
-      // improve data distributivity when using mongodb sharding
-      action_traces_doc.append( kvp( "_id", make_custom_oid() ) );
+   // bool added = false;
+   // const bool in_filter = (store_action_traces || store_transaction_traces) && start_block_reached &&
+   //                  filter_include( atrace.receiver, atrace.act.name, atrace.act.authorization );
+   // write_ttrace |= in_filter;
+   // if( start_block_reached && store_action_traces && in_filter ) {
+   //    auto action_traces_doc = bsoncxx::builder::basic::document{};
+   //    // improve data distributivity when using mongodb sharding
+   //    action_traces_doc.append( kvp( "_id", make_custom_oid() ) );
 
-      auto v = to_variant_with_abi( atrace );
-      string json = fc::json::to_string( v );
-      try {
-         const auto& value = bsoncxx::from_json( json );
-         action_traces_doc.append( bsoncxx::builder::concatenate_doc{value.view()} );
-      } catch( bsoncxx::exception& ) {
-         try {
-            json = fc::prune_invalid_utf8( json );
-            const auto& value = bsoncxx::from_json( json );
-            action_traces_doc.append( bsoncxx::builder::concatenate_doc{value.view()} );
-            action_traces_doc.append( kvp( "non-utf8-purged", b_bool{true} ) );
-         } catch( bsoncxx::exception& e ) {
-            elog( "Unable to convert action trace JSON to MongoDB JSON: ${e}", ("e", e.what()) );
-            elog( "  JSON: ${j}", ("j", json) );
-         }
-      }
-      if( t->receipt.valid() ) {
-         action_traces_doc.append( kvp( "trx_status", std::string( t->receipt->status ) ) );
-      }
-      action_traces_doc.append( kvp( "createdAt", b_date{now} ) );
+   //    auto v = to_variant_with_abi( atrace );
+   //    string json = fc::json::to_string( v );
+   //    try {
+   //       const auto& value = bsoncxx::from_json( json );
+   //       action_traces_doc.append( bsoncxx::builder::concatenate_doc{value.view()} );
+   //    } catch( bsoncxx::exception& ) {
+   //       try {
+   //          json = fc::prune_invalid_utf8( json );
+   //          const auto& value = bsoncxx::from_json( json );
+   //          action_traces_doc.append( bsoncxx::builder::concatenate_doc{value.view()} );
+   //          action_traces_doc.append( kvp( "non-utf8-purged", b_bool{true} ) );
+   //       } catch( bsoncxx::exception& e ) {
+   //          elog( "Unable to convert action trace JSON to MongoDB JSON: ${e}", ("e", e.what()) );
+   //          elog( "  JSON: ${j}", ("j", json) );
+   //       }
+   //    }
+   //    if( t->receipt.valid() ) {
+   //       action_traces_doc.append( kvp( "trx_status", std::string( t->receipt->status ) ) );
+   //    }
+   //    action_traces_doc.append( kvp( "createdAt", b_date{now} ) );
 
-      mongocxx::model::insert_one insert_op{action_traces_doc.view()};
-      bulk_action_traces.append( insert_op );
-      added = true;
-   }
+   //    mongocxx::model::insert_one insert_op{action_traces_doc.view()};
+   //    bulk_action_traces.append( insert_op );
+   //    added = true;
+   // }
 
-   return added;
+   // return added;
+   return false;
 }
 
 
@@ -1064,79 +1065,79 @@ void mongo_match_plugin_impl::_process_irreversible_block(const chain::block_sta
    const auto block_id = bs->block->id();
    const auto block_id_str = block_id.str();
 
-   auto now = std::chrono::duration_cast<std::chrono::milliseconds>(
-         std::chrono::microseconds{fc::time_point::now().time_since_epoch().count()});
+   // auto now = std::chrono::duration_cast<std::chrono::milliseconds>(
+   //       std::chrono::microseconds{fc::time_point::now().time_since_epoch().count()});
 
-   if( store_blocks ) {
-      auto ir_block = find_block( _blocks, block_id_str );
-      if( !ir_block ) {
-         _process_accepted_block( bs );
-         ir_block = find_block( _blocks, block_id_str );
-         if( !ir_block ) return; // should never happen
-      }
+   // if( store_blocks ) {
+   //    auto ir_block = find_block( _blocks, block_id_str );
+   //    if( !ir_block ) {
+   //       _process_accepted_block( bs );
+   //       ir_block = find_block( _blocks, block_id_str );
+   //       if( !ir_block ) return; // should never happen
+   //    }
 
-      auto update_doc = make_document( kvp( "$set", make_document( kvp( "irreversible", b_bool{true} ),
-                                                                   kvp( "validated", b_bool{bs->validated} ),
-                                                                   kvp( "updatedAt", b_date{now} ) ) ) );
+   //    auto update_doc = make_document( kvp( "$set", make_document( kvp( "irreversible", b_bool{true} ),
+   //                                                                 kvp( "validated", b_bool{bs->validated} ),
+   //                                                                 kvp( "updatedAt", b_date{now} ) ) ) );
 
-      _blocks.update_one( make_document( kvp( "_id", ir_block->view()["_id"].get_oid() ) ), update_doc.view() );
-   }
+   //    _blocks.update_one( make_document( kvp( "_id", ir_block->view()["_id"].get_oid() ) ), update_doc.view() );
+   // }
 
-   if( store_block_states ) {
-      auto ir_block = find_block( _block_states, block_id_str );
-      if( !ir_block ) {
-         _process_accepted_block( bs );
-         ir_block = find_block( _block_states, block_id_str );
-         if( !ir_block ) return; // should never happen
-      }
+   // if( store_block_states ) {
+   //    auto ir_block = find_block( _block_states, block_id_str );
+   //    if( !ir_block ) {
+   //       _process_accepted_block( bs );
+   //       ir_block = find_block( _block_states, block_id_str );
+   //       if( !ir_block ) return; // should never happen
+   //    }
 
-      auto update_doc = make_document( kvp( "$set", make_document( kvp( "irreversible", b_bool{true} ),
-                                                                   kvp( "validated", b_bool{bs->validated} ),
-                                                                   kvp( "updatedAt", b_date{now} ) ) ) );
+   //    auto update_doc = make_document( kvp( "$set", make_document( kvp( "irreversible", b_bool{true} ),
+   //                                                                 kvp( "validated", b_bool{bs->validated} ),
+   //                                                                 kvp( "updatedAt", b_date{now} ) ) ) );
 
-      _block_states.update_one( make_document( kvp( "_id", ir_block->view()["_id"].get_oid() ) ), update_doc.view() );
-   }
+   //    _block_states.update_one( make_document( kvp( "_id", ir_block->view()["_id"].get_oid() ) ), update_doc.view() );
+   // }
 
-   if( store_transactions ) {
-      const auto block_num = bs->block->block_num();
-      bool transactions_in_block = false;
-      mongocxx::options::bulk_write bulk_opts;
-      bulk_opts.ordered( false );
-      auto bulk = _trans.create_bulk_write( bulk_opts );
+   // if( store_transactions ) {
+   //    const auto block_num = bs->block->block_num();
+   //    bool transactions_in_block = false;
+   //    mongocxx::options::bulk_write bulk_opts;
+   //    bulk_opts.ordered( false );
+   //    auto bulk = _trans.create_bulk_write( bulk_opts );
 
-      for( const auto& receipt : bs->block->transactions ) {
-         string trx_id_str;
-         if( receipt.trx.contains<packed_transaction>() ) {
-            const auto& pt = receipt.trx.get<packed_transaction>();
-            if( !filter_include( pt.get_signed_transaction() ) ) continue;
-            const auto& id = pt.id();
-            trx_id_str = id.str();
-         } else {
-            const auto& id = receipt.trx.get<transaction_id_type>();
-            trx_id_str = id.str();
-         }
+   //    for( const auto& receipt : bs->block->transactions ) {
+   //       string trx_id_str;
+   //       if( receipt.trx.contains<packed_transaction>() ) {
+   //          const auto& pt = receipt.trx.get<packed_transaction>();
+   //          if( !filter_include( pt.get_signed_transaction() ) ) continue;
+   //          const auto& id = pt.id();
+   //          trx_id_str = id.str();
+   //       } else {
+   //          const auto& id = receipt.trx.get<transaction_id_type>();
+   //          trx_id_str = id.str();
+   //       }
 
-         auto update_doc = make_document( kvp( "$set", make_document( kvp( "irreversible", b_bool{true} ),
-                                                                      kvp( "block_id", block_id_str ),
-                                                                      kvp( "block_num", b_int32{static_cast<int32_t>(block_num)} ),
-                                                                      kvp( "updatedAt", b_date{now} ) ) ) );
+   //       auto update_doc = make_document( kvp( "$set", make_document( kvp( "irreversible", b_bool{true} ),
+   //                                                                    kvp( "block_id", block_id_str ),
+   //                                                                    kvp( "block_num", b_int32{static_cast<int32_t>(block_num)} ),
+   //                                                                    kvp( "updatedAt", b_date{now} ) ) ) );
 
-         mongocxx::model::update_one update_op{make_document( kvp( "trx_id", trx_id_str ) ), update_doc.view()};
-         update_op.upsert( false );
-         bulk.append( update_op );
-         transactions_in_block = true;
-      }
+   //       mongocxx::model::update_one update_op{make_document( kvp( "trx_id", trx_id_str ) ), update_doc.view()};
+   //       update_op.upsert( false );
+   //       bulk.append( update_op );
+   //       transactions_in_block = true;
+   //    }
 
-      if( transactions_in_block ) {
-         try {
-            if( !bulk.execute() ) {
-               EOS_ASSERT( false, chain::mongo_db_insert_fail, "Bulk transaction insert failed for block: ${bid}", ("bid", block_id) );
-            }
-         } catch( ... ) {
-            handle_mongo_exception( "bulk transaction insert", __LINE__ );
-         }
-      }
-   }
+   //    if( transactions_in_block ) {
+   //       try {
+   //          if( !bulk.execute() ) {
+   //             EOS_ASSERT( false, chain::mongo_db_insert_fail, "Bulk transaction insert failed for block: ${bid}", ("bid", block_id) );
+   //          }
+   //       } catch( ... ) {
+   //          handle_mongo_exception( "bulk transaction insert", __LINE__ );
+   //       }
+   //    }
+   // }
 }
 
 void mongo_match_plugin_impl::add_pub_keys( const vector<chain::key_weight>& keys, const account_name& name,
@@ -1737,33 +1738,33 @@ void mongo_match_plugin::plugin_initialize(const variables_map& options)
          if( options.count( "mongodb-expire-after-seconds" )) {
             my->expire_after_seconds = options.at( "mongodb-expire-after-seconds" ).as<uint32_t>();
          }
-         if( options.count( "mongodb-filter-on" )) {
-            auto fo = options.at( "mongodb-filter-on" ).as<vector<string>>();
-            my->filter_on_star = false;
-            for( auto& s : fo ) {
-               if( s == "*" ) {
-                  my->filter_on_star = true;
-                  break;
-               }
-               std::vector<std::string> v;
-               boost::split( v, s, boost::is_any_of( ":" ));
-               EOS_ASSERT( v.size() == 3, fc::invalid_arg_exception, "Invalid value ${s} for --mongodb-filter-on", ("s", s));
-               filter_entry fe{v[0], v[1], v[2]};
-               my->filter_on.insert( fe );
-            }
-         } else {
-            my->filter_on_star = true;
-         }
-         if( options.count( "mongodb-filter-out" )) {
-            auto fo = options.at( "mongodb-filter-out" ).as<vector<string>>();
-            for( auto& s : fo ) {
-               std::vector<std::string> v;
-               boost::split( v, s, boost::is_any_of( ":" ));
-               EOS_ASSERT( v.size() == 3, fc::invalid_arg_exception, "Invalid value ${s} for --mongodb-filter-out", ("s", s));
-               filter_entry fe{v[0], v[1], v[2]};
-               my->filter_out.insert( fe );
-            }
-         }
+         // if( options.count( "mongodb-filter-on" )) {
+         //    auto fo = options.at( "mongodb-filter-on" ).as<vector<string>>();
+         //    my->filter_on_star = false;
+         //    for( auto& s : fo ) {
+         //       if( s == "*" ) {
+         //          my->filter_on_star = true;
+         //          break;
+         //       }
+         //       std::vector<std::string> v;
+         //       boost::split( v, s, boost::is_any_of( ":" ));
+         //       EOS_ASSERT( v.size() == 3, fc::invalid_arg_exception, "Invalid value ${s} for --mongodb-filter-on", ("s", s));
+         //       filter_entry fe{v[0], v[1], v[2]};
+         //       my->filter_on.insert( fe );
+         //    }
+         // } else {
+         //    my->filter_on_star = true;
+         // }
+         // if( options.count( "mongodb-filter-out" )) {
+         //    auto fo = options.at( "mongodb-filter-out" ).as<vector<string>>();
+         //    for( auto& s : fo ) {
+         //       std::vector<std::string> v;
+         //       boost::split( v, s, boost::is_any_of( ":" ));
+         //       EOS_ASSERT( v.size() == 3, fc::invalid_arg_exception, "Invalid value ${s} for --mongodb-filter-out", ("s", s));
+         //       filter_entry fe{v[0], v[1], v[2]};
+         //       my->filter_out.insert( fe );
+         //    }
+         // }
          if( options.count( "producer-name") ) {
             wlog( "mongodb plugin not recommended on producer node" );
             my->is_producer = true;
