@@ -97,20 +97,20 @@ public:
 
    void purge_abi_cache();
 
-   bool add_action_trace( mongocxx::bulk_write& bulk_action_traces, const chain::action_trace& atrace,
-                          const chain::transaction_trace_ptr& t,
-                          bool executed, const std::chrono::milliseconds& now,
-                          bool& write_ttrace );
+   // bool add_action_trace( mongocxx::bulk_write& bulk_action_traces, const chain::action_trace& atrace,
+   //                        const chain::transaction_trace_ptr& t,
+   //                        bool executed, const std::chrono::milliseconds& now,
+   //                        bool& write_ttrace );
 
-   void update_account(const chain::action& act);
+   // void update_account(const chain::action& act);
 
-   void add_pub_keys( const vector<chain::key_weight>& keys, const account_name& name,
-                      const permission_name& permission, const std::chrono::milliseconds& now );
-   void remove_pub_keys( const account_name& name, const permission_name& permission );
-   void add_account_control( const vector<chain::permission_level_weight>& controlling_accounts,
-                             const account_name& name, const permission_name& permission,
-                             const std::chrono::milliseconds& now );
-   void remove_account_control( const account_name& name, const permission_name& permission );
+   // void add_pub_keys( const vector<chain::key_weight>& keys, const account_name& name,
+   //                    const permission_name& permission, const std::chrono::milliseconds& now );
+   // void remove_pub_keys( const account_name& name, const permission_name& permission );
+   // void add_account_control( const vector<chain::permission_level_weight>& controlling_accounts,
+   //                           const account_name& name, const permission_name& permission,
+   //                           const std::chrono::milliseconds& now );
+   // void remove_account_control( const account_name& name, const permission_name& permission );
 
    void insert_default_abi();
    bool b_insert_default_abi = false;
@@ -149,14 +149,14 @@ public:
    fc::optional<mongocxx::pool> mongo_pool;
 
    // consum thread
-   mongocxx::collection _accounts;
-   mongocxx::collection _trans;
-   mongocxx::collection _trans_traces;
-   mongocxx::collection _action_traces;
-   mongocxx::collection _block_states;
-   mongocxx::collection _blocks;
-   mongocxx::collection _pub_keys;
-   mongocxx::collection _account_controls;
+   // mongocxx::collection _accounts;
+   // mongocxx::collection _trans;
+   // mongocxx::collection _trans_traces;
+   // mongocxx::collection _action_traces;
+   // mongocxx::collection _block_states;
+   // mongocxx::collection _blocks;
+   // mongocxx::collection _pub_keys;
+   // mongocxx::collection _account_controls;
 
    size_t max_queue_size = 0;
    int queue_sleep_time = 0;
@@ -195,38 +195,38 @@ public:
 
    abi_cache_index_t abi_cache_index;
 
-   static const action_name newaccount;
-   static const action_name setabi;
-   static const action_name updateauth;
-   static const action_name deleteauth;
-   static const permission_name owner;
-   static const permission_name active;
+   // static const action_name newaccount;
+   // static const action_name setabi;
+   // static const action_name updateauth;
+   // static const action_name deleteauth;
+   // static const permission_name owner;
+   // static const permission_name active;
 
-   static const std::string block_states_col;
-   static const std::string blocks_col;
-   static const std::string trans_col;
-   static const std::string trans_traces_col;
-   static const std::string action_traces_col;
-   static const std::string accounts_col;
-   static const std::string pub_keys_col;
-   static const std::string account_controls_col;
+   // static const std::string block_states_col;
+   // static const std::string blocks_col;
+   // static const std::string trans_col;
+   // static const std::string trans_traces_col;
+   // static const std::string action_traces_col;
+   // static const std::string accounts_col;
+   // static const std::string pub_keys_col;
+   // static const std::string account_controls_col;
 };
 
-const action_name mongo_match_plugin_impl::newaccount = chain::newaccount::get_name();
-const action_name mongo_match_plugin_impl::setabi = chain::setabi::get_name();
-const action_name mongo_match_plugin_impl::updateauth = chain::updateauth::get_name();
-const action_name mongo_match_plugin_impl::deleteauth = chain::deleteauth::get_name();
-const permission_name mongo_match_plugin_impl::owner = chain::config::owner_name;
-const permission_name mongo_match_plugin_impl::active = chain::config::active_name;
+// const action_name mongo_match_plugin_impl::newaccount = chain::newaccount::get_name();
+// const action_name mongo_match_plugin_impl::setabi = chain::setabi::get_name();
+// const action_name mongo_match_plugin_impl::updateauth = chain::updateauth::get_name();
+// const action_name mongo_match_plugin_impl::deleteauth = chain::deleteauth::get_name();
+// const permission_name mongo_match_plugin_impl::owner = chain::config::owner_name;
+// const permission_name mongo_match_plugin_impl::active = chain::config::active_name;
 
-const std::string mongo_match_plugin_impl::block_states_col = "block_states";
-const std::string mongo_match_plugin_impl::blocks_col = "blocks";
-const std::string mongo_match_plugin_impl::trans_col = "transactions";
-const std::string mongo_match_plugin_impl::trans_traces_col = "transaction_traces";
-const std::string mongo_match_plugin_impl::action_traces_col = "action_traces";
-const std::string mongo_match_plugin_impl::accounts_col = "accounts";
-const std::string mongo_match_plugin_impl::pub_keys_col = "pub_keys";
-const std::string mongo_match_plugin_impl::account_controls_col = "account_controls";
+// const std::string mongo_match_plugin_impl::block_states_col = "block_states";
+// const std::string mongo_match_plugin_impl::blocks_col = "blocks";
+// const std::string mongo_match_plugin_impl::trans_col = "transactions";
+// const std::string mongo_match_plugin_impl::trans_traces_col = "transaction_traces";
+// const std::string mongo_match_plugin_impl::action_traces_col = "action_traces";
+// const std::string mongo_match_plugin_impl::accounts_col = "accounts";
+// const std::string mongo_match_plugin_impl::pub_keys_col = "pub_keys";
+// const std::string mongo_match_plugin_impl::account_controls_col = "account_controls";
 
 // bool mongo_match_plugin_impl::filter_include( const account_name& receiver, const action_name& act_name,
 //                                            const vector<chain::permission_level>& authorization ) const
@@ -403,14 +403,14 @@ void mongo_match_plugin_impl::consume_blocks() {
       auto mongo_client = mongo_pool->acquire();
       auto& mongo_conn = *mongo_client;
 
-      _accounts = mongo_conn[db_name][accounts_col];
-      _trans = mongo_conn[db_name][trans_col];
-      _trans_traces = mongo_conn[db_name][trans_traces_col];
-      _action_traces = mongo_conn[db_name][action_traces_col];
-      _blocks = mongo_conn[db_name][blocks_col];
-      _block_states = mongo_conn[db_name][block_states_col];
-      _pub_keys = mongo_conn[db_name][pub_keys_col];
-      _account_controls = mongo_conn[db_name][account_controls_col];
+      // _accounts = mongo_conn[db_name][accounts_col];
+      // _trans = mongo_conn[db_name][trans_col];
+      // _trans_traces = mongo_conn[db_name][trans_traces_col];
+      // _action_traces = mongo_conn[db_name][action_traces_col];
+      // _blocks = mongo_conn[db_name][blocks_col];
+      // _block_states = mongo_conn[db_name][block_states_col];
+      // _pub_keys = mongo_conn[db_name][pub_keys_col];
+      // _account_controls = mongo_conn[db_name][account_controls_col];
       insert_default_abi();
       while (true) {
          std::unique_lock<std::mutex> lock(mtx);
@@ -600,86 +600,101 @@ void mongo_match_plugin_impl::purge_abi_cache() {
 }
 
 optional<abi_serializer> mongo_match_plugin_impl::get_abi_serializer( account_name n ) {
-   using bsoncxx::builder::basic::kvp;
-   using bsoncxx::builder::basic::make_document;
-   if( n.good()) {
-      try {
+      if( n.good()) {
+            try {
 
-         auto itr = abi_cache_index.find( n );
-         if( itr != abi_cache_index.end() ) {
-            abi_cache_index.modify( itr, []( auto& entry ) {
-               entry.last_accessed = fc::time_point::now();
-            });
+                auto itr = abi_cache_index.find( n );
+                if( itr != abi_cache_index.end() ) {
+                    abi_cache_index.modify( itr, []( auto& entry ) {
+                    entry.last_accessed = fc::time_point::now();
+                    });
 
-            return itr->serializer;
-         }
+                    return itr->serializer;
+                }
 
-         auto account = _accounts.find_one( make_document( kvp("name", n.to_string())) );
-         if(account) {
-            auto view = account->view();
-            abi_def abi;
-            if( view.find( "abi" ) != view.end()) {
-               try {
-                  abi = fc::json::from_string( bsoncxx::to_json( view["abi"].get_document())).as<abi_def>();
-               } catch (...) {
-                  ilog( "Unable to convert account abi to abi_def for ${n}", ( "n", n ));
-                  return optional<abi_serializer>();
-               }
+            } FC_CAPTURE_AND_LOG((n))
+        }
+        return optional<abi_serializer>();
+   // using bsoncxx::builder::basic::kvp;
+   // using bsoncxx::builder::basic::make_document;
+   // if( n.good()) {
+   //    try {
 
-               purge_abi_cache(); // make room if necessary
-               abi_cache entry;
-               entry.account = n;
-               entry.last_accessed = fc::time_point::now();
-               abi_serializer abis;
-               if( n == chain::config::system_account_name ) {
-                  // redefine eosio setabi.abi from bytes to abi_def
-                  // Done so that abi is stored as abi_def in mongo instead of as bytes
-                  auto itr = std::find_if( abi.structs.begin(), abi.structs.end(),
-                                           []( const auto& s ) { return s.name == "setabi"; } );
-                  if( itr != abi.structs.end() ) {
-                     auto itr2 = std::find_if( itr->fields.begin(), itr->fields.end(),
-                                               []( const auto& f ) { return f.name == "abi"; } );
-                     if( itr2 != itr->fields.end() ) {
-                        if( itr2->type == "bytes" ) {
-                           itr2->type = "abi_def";
-                           // unpack setabi.abi as abi_def instead of as bytes
-                           abis.add_specialized_unpack_pack( "abi_def",
-                                 std::make_pair<abi_serializer::unpack_function, abi_serializer::pack_function>(
-                                       []( fc::datastream<const char*>& stream, bool is_array, bool is_optional ) -> fc::variant {
-                                          EOS_ASSERT( !is_array && !is_optional, chain::mongo_db_exception, "unexpected abi_def");
-                                          chain::bytes temp;
-                                          fc::raw::unpack( stream, temp );
-                                          return fc::variant( fc::raw::unpack<abi_def>( temp ) );
-                                       },
-                                       []( const fc::variant& var, fc::datastream<char*>& ds, bool is_array, bool is_optional ) {
-                                          EOS_ASSERT( false, chain::mongo_db_exception, "never called" );
-                                       }
-                                 ) );
-                        }
-                     }
-                  }
-               }
-               // mongo does not like empty json keys
-               // make abi_serializer use empty_name instead of "" for the action data
-               for( auto& s : abi.structs ) {
-                  if( s.name.empty() ) {
-                     s.name = "empty_struct_name";
-                  }
-                  for( auto& f : s.fields ) {
-                     if( f.name.empty() ) {
-                        f.name = "empty_field_name";
-                     }
-                  }
-               }
-               abis.set_abi( abi, abi_serializer_max_time );
-               entry.serializer.emplace( std::move( abis ) );
-               abi_cache_index.insert( entry );
-               return entry.serializer;
-            }
-         }
-      } FC_CAPTURE_AND_LOG((n))
-   }
-   return optional<abi_serializer>();
+   //       auto itr = abi_cache_index.find( n );
+   //       if( itr != abi_cache_index.end() ) {
+   //          abi_cache_index.modify( itr, []( auto& entry ) {
+   //             entry.last_accessed = fc::time_point::now();
+   //          });
+
+   //          return itr->serializer;
+   //       }
+
+   //       auto account = _accounts.find_one( make_document( kvp("name", n.to_string())) );
+   //       if(account) {
+   //          auto view = account->view();
+   //          abi_def abi;
+   //          if( view.find( "abi" ) != view.end()) {
+   //             try {
+   //                abi = fc::json::from_string( bsoncxx::to_json( view["abi"].get_document())).as<abi_def>();
+   //             } catch (...) {
+   //                ilog( "Unable to convert account abi to abi_def for ${n}", ( "n", n ));
+   //                return optional<abi_serializer>();
+   //             }
+
+   //             purge_abi_cache(); // make room if necessary
+   //             abi_cache entry;
+   //             entry.account = n;
+   //             entry.last_accessed = fc::time_point::now();
+   //             abi_serializer abis;
+   //             if( n == chain::config::system_account_name ) {
+   //                // redefine eosio setabi.abi from bytes to abi_def
+   //                // Done so that abi is stored as abi_def in mongo instead of as bytes
+   //                auto itr = std::find_if( abi.structs.begin(), abi.structs.end(),
+   //                                         []( const auto& s ) { return s.name == "setabi"; } );
+   //                if( itr != abi.structs.end() ) {
+   //                   auto itr2 = std::find_if( itr->fields.begin(), itr->fields.end(),
+   //                                             []( const auto& f ) { return f.name == "abi"; } );
+   //                   if( itr2 != itr->fields.end() ) {
+   //                      if( itr2->type == "bytes" ) {
+   //                         itr2->type = "abi_def";
+   //                         // unpack setabi.abi as abi_def instead of as bytes
+   //                         abis.add_specialized_unpack_pack( "abi_def",
+   //                               std::make_pair<abi_serializer::unpack_function, abi_serializer::pack_function>(
+   //                                     []( fc::datastream<const char*>& stream, bool is_array, bool is_optional ) -> fc::variant {
+   //                                        EOS_ASSERT( !is_array && !is_optional, chain::mongo_db_exception, "unexpected abi_def");
+   //                                        chain::bytes temp;
+   //                                        fc::raw::unpack( stream, temp );
+   //                                        return fc::variant( fc::raw::unpack<abi_def>( temp ) );
+   //                                     },
+   //                                     []( const fc::variant& var, fc::datastream<char*>& ds, bool is_array, bool is_optional ) {
+   //                                        EOS_ASSERT( false, chain::mongo_db_exception, "never called" );
+   //                                     }
+   //                               ) );
+   //                      }
+   //                   }
+   //                }
+   //             }
+   //             // mongo does not like empty json keys
+   //             // make abi_serializer use empty_name instead of "" for the action data
+   //             for( auto& s : abi.structs ) {
+   //                if( s.name.empty() ) {
+   //                   s.name = "empty_struct_name";
+   //                }
+   //                for( auto& f : s.fields ) {
+   //                   if( f.name.empty() ) {
+   //                      f.name = "empty_field_name";
+   //                   }
+   //                }
+   //             }
+   //             abis.set_abi( abi, abi_serializer_max_time );
+   //             entry.serializer.emplace( std::move( abis ) );
+   //             abi_cache_index.insert( entry );
+   //             return entry.serializer;
+   //          }
+   //       }
+   //    } FC_CAPTURE_AND_LOG((n))
+   // }
+   // return optional<abi_serializer>();
 }
 
 template<typename T>
@@ -753,85 +768,85 @@ void mongo_match_plugin_impl::_process_accepted_transaction( const chain::transa
    using bsoncxx::builder::basic::make_array;
    namespace bbb = bsoncxx::builder::basic;
 
-   const signed_transaction& trx = t->packed_trx->get_signed_transaction();
+   // const signed_transaction& trx = t->packed_trx->get_signed_transaction();
 
-   // if( !filter_include( trx ) ) return;
+   // // if( !filter_include( trx ) ) return;
 
-   auto trans_doc = bsoncxx::builder::basic::document{};
+   // auto trans_doc = bsoncxx::builder::basic::document{};
 
-   auto now = std::chrono::duration_cast<std::chrono::milliseconds>(
-         std::chrono::microseconds{fc::time_point::now().time_since_epoch().count()} );
+   // auto now = std::chrono::duration_cast<std::chrono::milliseconds>(
+   //       std::chrono::microseconds{fc::time_point::now().time_since_epoch().count()} );
 
-   const auto& trx_id = t->id;
-   const auto trx_id_str = trx_id.str();
+   // const auto& trx_id = t->id;
+   // const auto trx_id_str = trx_id.str();
 
-   trans_doc.append( kvp( "trx_id", trx_id_str ) );
+   // trans_doc.append( kvp( "trx_id", trx_id_str ) );
 
-   auto v = to_variant_with_abi( trx );
-   string trx_json = fc::json::to_string( v );
+   // auto v = to_variant_with_abi( trx );
+   // string trx_json = fc::json::to_string( v );
 
-   try {
-      const auto& trx_value = bsoncxx::from_json( trx_json );
-      trans_doc.append( bsoncxx::builder::concatenate_doc{trx_value.view()} );
-   } catch( bsoncxx::exception& ) {
-      try {
-         trx_json = fc::prune_invalid_utf8( trx_json );
-         const auto& trx_value = bsoncxx::from_json( trx_json );
-         trans_doc.append( bsoncxx::builder::concatenate_doc{trx_value.view()} );
-         trans_doc.append( kvp( "non-utf8-purged", b_bool{true} ) );
-      } catch( bsoncxx::exception& e ) {
-         elog( "Unable to convert transaction JSON to MongoDB JSON: ${e}", ("e", e.what()) );
-         elog( "  JSON: ${j}", ("j", trx_json) );
-      }
-   }
+   // try {
+   //    const auto& trx_value = bsoncxx::from_json( trx_json );
+   //    trans_doc.append( bsoncxx::builder::concatenate_doc{trx_value.view()} );
+   // } catch( bsoncxx::exception& ) {
+   //    try {
+   //       trx_json = fc::prune_invalid_utf8( trx_json );
+   //       const auto& trx_value = bsoncxx::from_json( trx_json );
+   //       trans_doc.append( bsoncxx::builder::concatenate_doc{trx_value.view()} );
+   //       trans_doc.append( kvp( "non-utf8-purged", b_bool{true} ) );
+   //    } catch( bsoncxx::exception& e ) {
+   //       elog( "Unable to convert transaction JSON to MongoDB JSON: ${e}", ("e", e.what()) );
+   //       elog( "  JSON: ${j}", ("j", trx_json) );
+   //    }
+   // }
 
-   string signing_keys_json;
-   if( t->signing_keys_future.valid() ) {
-      signing_keys_json = fc::json::to_string( std::get<2>( t->signing_keys_future.get() ) );
-   } else {
-      flat_set<public_key_type> keys;
-      trx.get_signature_keys( *chain_id, fc::time_point::maximum(), keys, false );
-      if( !keys.empty() ) {
-         signing_keys_json = fc::json::to_string( keys );
-      }
-   }
+   // string signing_keys_json;
+   // if( t->signing_keys_future.valid() ) {
+   //    signing_keys_json = fc::json::to_string( std::get<2>( t->signing_keys_future.get() ) );
+   // } else {
+   //    flat_set<public_key_type> keys;
+   //    trx.get_signature_keys( *chain_id, fc::time_point::maximum(), keys, false );
+   //    if( !keys.empty() ) {
+   //       signing_keys_json = fc::json::to_string( keys );
+   //    }
+   // }
 
-   if( !signing_keys_json.empty() ) {
-      try {
-         const auto& keys_value = bsoncxx::from_json( signing_keys_json );
-         trans_doc.append( kvp( "signing_keys", keys_value ) );
-      } catch( bsoncxx::exception& e ) {
-         // should never fail, so don't attempt to remove invalid utf8
-         elog( "Unable to convert signing keys JSON to MongoDB JSON: ${e}", ("e", e.what()) );
-         elog( "  JSON: ${j}", ("j", signing_keys_json) );
-      }
-   }
+   // if( !signing_keys_json.empty() ) {
+   //    try {
+   //       const auto& keys_value = bsoncxx::from_json( signing_keys_json );
+   //       trans_doc.append( kvp( "signing_keys", keys_value ) );
+   //    } catch( bsoncxx::exception& e ) {
+   //       // should never fail, so don't attempt to remove invalid utf8
+   //       elog( "Unable to convert signing keys JSON to MongoDB JSON: ${e}", ("e", e.what()) );
+   //       elog( "  JSON: ${j}", ("j", signing_keys_json) );
+   //    }
+   // }
 
-   trans_doc.append( kvp( "accepted", b_bool{t->accepted} ) );
-   trans_doc.append( kvp( "implicit", b_bool{t->implicit} ) );
-   trans_doc.append( kvp( "scheduled", b_bool{t->scheduled} ) );
+   // trans_doc.append( kvp( "accepted", b_bool{t->accepted} ) );
+   // trans_doc.append( kvp( "implicit", b_bool{t->implicit} ) );
+   // trans_doc.append( kvp( "scheduled", b_bool{t->scheduled} ) );
 
-   trans_doc.append( kvp( "createdAt", b_date{now} ) );
+   // trans_doc.append( kvp( "createdAt", b_date{now} ) );
 
-   try {
-      mongocxx::options::update update_opts{};
-      update_opts.upsert( true );
-      if( !_trans.update_one( make_document( kvp( "trx_id", trx_id_str ) ),
-                              make_document( kvp( "$set", trans_doc.view() ) ), update_opts ) ) {
-         EOS_ASSERT( false, chain::mongo_db_insert_fail, "Failed to insert trans ${id}", ("id", trx_id) );
-      }
-   } catch( ... ) {
-      handle_mongo_exception( "trans insert", __LINE__ );
-   }
+   // try {
+   //    mongocxx::options::update update_opts{};
+   //    update_opts.upsert( true );
+   //    if( !_trans.update_one( make_document( kvp( "trx_id", trx_id_str ) ),
+   //                            make_document( kvp( "$set", trans_doc.view() ) ), update_opts ) ) {
+   //       EOS_ASSERT( false, chain::mongo_db_insert_fail, "Failed to insert trans ${id}", ("id", trx_id) );
+   //    }
+   // } catch( ... ) {
+   //    handle_mongo_exception( "trans insert", __LINE__ );
+   // }
 
 }
 
-bool
-mongo_match_plugin_impl::add_action_trace( mongocxx::bulk_write& bulk_action_traces, const chain::action_trace& atrace,
-                                        const chain::transaction_trace_ptr& t,
-                                        bool executed, const std::chrono::milliseconds& now,
-                                        bool& write_ttrace )
-{
+// bool
+// mongo_match_plugin_impl::add_action_trace( mongocxx::bulk_write& bulk_action_traces, const chain::action_trace& atrace,
+//                                         const chain::transaction_trace_ptr& t,
+//                                         bool executed, const std::chrono::milliseconds& now,
+//                                         bool& write_ttrace )
+// {
    // using namespace bsoncxx::types;
    // using bsoncxx::builder::basic::kvp;
 
@@ -875,8 +890,8 @@ mongo_match_plugin_impl::add_action_trace( mongocxx::bulk_write& bulk_action_tra
    // }
 
    // return added;
-   return false;
-}
+//    return false;
+// }
 
 
 void mongo_match_plugin_impl::_process_applied_transaction( const chain::transaction_trace_ptr& t ) {
@@ -888,68 +903,68 @@ void mongo_match_plugin_impl::_process_applied_transaction( const chain::transac
    auto now = std::chrono::duration_cast<std::chrono::milliseconds>(
          std::chrono::microseconds{fc::time_point::now().time_since_epoch().count()});
 
-   mongocxx::options::bulk_write bulk_opts;
-   bulk_opts.ordered(false);
-   mongocxx::bulk_write bulk_action_traces = _action_traces.create_bulk_write(bulk_opts);
-   bool write_atraces = false;
-   bool write_ttrace = false; // filters apply to transaction_traces as well
-   bool executed = t->receipt.valid() && t->receipt->status == chain::transaction_receipt_header::executed;
+   // mongocxx::options::bulk_write bulk_opts;
+   // bulk_opts.ordered(false);
+   // mongocxx::bulk_write bulk_action_traces = _action_traces.create_bulk_write(bulk_opts);
+   // bool write_atraces = false;
+   // bool write_ttrace = false; // filters apply to transaction_traces as well
+   // bool executed = t->receipt.valid() && t->receipt->status == chain::transaction_receipt_header::executed;
 
-   for( const auto& atrace : t->action_traces ) {
-      try {
-         write_atraces |= add_action_trace( bulk_action_traces, atrace, t, executed, now, write_ttrace );
-      } catch(...) {
-         handle_mongo_exception("add action traces", __LINE__);
-      }
-   }
+   // for( const auto& atrace : t->action_traces ) {
+   //    try {
+   //       write_atraces |= add_action_trace( bulk_action_traces, atrace, t, executed, now, write_ttrace );
+   //    } catch(...) {
+   //       handle_mongo_exception("add action traces", __LINE__);
+   //    }
+   // }
 
-   if( !start_block_reached ) return; //< add_action_trace calls update_account which must be called always
+   // if( !start_block_reached ) return; //< add_action_trace calls update_account which must be called always
 
-   // transaction trace insert
+   // // transaction trace insert
 
-   if( store_transaction_traces && write_ttrace ) {
-      try {
-         auto v = to_variant_with_abi( *t );
-         string json = fc::json::to_string( v );
-         try {
-            const auto& value = bsoncxx::from_json( json );
-            trans_traces_doc.append( bsoncxx::builder::concatenate_doc{value.view()} );
-         } catch( bsoncxx::exception& ) {
-            try {
-               json = fc::prune_invalid_utf8( json );
-               const auto& value = bsoncxx::from_json( json );
-               trans_traces_doc.append( bsoncxx::builder::concatenate_doc{value.view()} );
-               trans_traces_doc.append( kvp( "non-utf8-purged", b_bool{true} ) );
-            } catch( bsoncxx::exception& e ) {
-               elog( "Unable to convert transaction JSON to MongoDB JSON: ${e}", ("e", e.what()) );
-               elog( "  JSON: ${j}", ("j", json) );
-            }
-         }
-         trans_traces_doc.append( kvp( "createdAt", b_date{now} ) );
+   // if( store_transaction_traces && write_ttrace ) {
+   //    try {
+   //       auto v = to_variant_with_abi( *t );
+   //       string json = fc::json::to_string( v );
+   //       try {
+   //          const auto& value = bsoncxx::from_json( json );
+   //          trans_traces_doc.append( bsoncxx::builder::concatenate_doc{value.view()} );
+   //       } catch( bsoncxx::exception& ) {
+   //          try {
+   //             json = fc::prune_invalid_utf8( json );
+   //             const auto& value = bsoncxx::from_json( json );
+   //             trans_traces_doc.append( bsoncxx::builder::concatenate_doc{value.view()} );
+   //             trans_traces_doc.append( kvp( "non-utf8-purged", b_bool{true} ) );
+   //          } catch( bsoncxx::exception& e ) {
+   //             elog( "Unable to convert transaction JSON to MongoDB JSON: ${e}", ("e", e.what()) );
+   //             elog( "  JSON: ${j}", ("j", json) );
+   //          }
+   //       }
+   //       trans_traces_doc.append( kvp( "createdAt", b_date{now} ) );
 
-         try {
-            if( !_trans_traces.insert_one( trans_traces_doc.view() ) ) {
-               EOS_ASSERT( false, chain::mongo_db_insert_fail, "Failed to insert trans ${id}", ("id", t->id) );
-            }
-         } catch( ... ) {
-            handle_mongo_exception( "trans_traces insert: " + json, __LINE__ );
-         }
-      } catch( ... ) {
-         handle_mongo_exception( "trans_traces serialization: " + t->id.str(), __LINE__ );
-      }
-   }
+   //       try {
+   //          if( !_trans_traces.insert_one( trans_traces_doc.view() ) ) {
+   //             EOS_ASSERT( false, chain::mongo_db_insert_fail, "Failed to insert trans ${id}", ("id", t->id) );
+   //          }
+   //       } catch( ... ) {
+   //          handle_mongo_exception( "trans_traces insert: " + json, __LINE__ );
+   //       }
+   //    } catch( ... ) {
+   //       handle_mongo_exception( "trans_traces serialization: " + t->id.str(), __LINE__ );
+   //    }
+   // }
 
-   // insert action_traces
-   if( write_atraces ) {
-      try {
-         if( !bulk_action_traces.execute() ) {
-            EOS_ASSERT( false, chain::mongo_db_insert_fail,
-                        "Bulk action traces insert failed for transaction trace: ${id}", ("id", t->id) );
-         }
-      } catch( ... ) {
-         handle_mongo_exception( "action traces insert", __LINE__ );
-      }
-   }
+   // // insert action_traces
+   // if( write_atraces ) {
+   //    try {
+   //       if( !bulk_action_traces.execute() ) {
+   //          EOS_ASSERT( false, chain::mongo_db_insert_fail,
+   //                      "Bulk action traces insert failed for transaction trace: ${id}", ("id", t->id) );
+   //       }
+   //    } catch( ... ) {
+   //       handle_mongo_exception( "action traces insert", __LINE__ );
+   //    }
+   // }
 
 }
 
@@ -959,99 +974,99 @@ void mongo_match_plugin_impl::_process_accepted_block( const chain::block_state_
    using bsoncxx::builder::basic::kvp;
    using bsoncxx::builder::basic::make_document;
 
-   mongocxx::options::update update_opts{};
-   update_opts.upsert( true );
+   // mongocxx::options::update update_opts{};
+   // update_opts.upsert( true );
 
-   auto block_num = bs->block_num;
-   if( block_num % 1000 == 0 )
-      ilog( "block_num: ${b}", ("b", block_num) );
-   const auto& block_id = bs->id;
-   const auto block_id_str = block_id.str();
+   // auto block_num = bs->block_num;
+   // if( block_num % 1000 == 0 )
+   //    ilog( "block_num: ${b}", ("b", block_num) );
+   // const auto& block_id = bs->id;
+   // const auto block_id_str = block_id.str();
 
-   auto now = std::chrono::duration_cast<std::chrono::milliseconds>(
-         std::chrono::microseconds{fc::time_point::now().time_since_epoch().count()});
+   // auto now = std::chrono::duration_cast<std::chrono::milliseconds>(
+   //       std::chrono::microseconds{fc::time_point::now().time_since_epoch().count()});
 
-   if( store_block_states ) {
-      auto block_state_doc = bsoncxx::builder::basic::document{};
-      block_state_doc.append( kvp( "block_num", b_int32{static_cast<int32_t>(block_num)} ),
-                              kvp( "block_id", block_id_str ),
-                              kvp( "validated", b_bool{bs->validated} ) );
+   // if( store_block_states ) {
+   //    auto block_state_doc = bsoncxx::builder::basic::document{};
+   //    block_state_doc.append( kvp( "block_num", b_int32{static_cast<int32_t>(block_num)} ),
+   //                            kvp( "block_id", block_id_str ),
+   //                            kvp( "validated", b_bool{bs->validated} ) );
 
-      const chain::block_header_state& bhs = *bs;
+   //    const chain::block_header_state& bhs = *bs;
 
-      auto json = fc::json::to_string( bhs );
-      try {
-         const auto& value = bsoncxx::from_json( json );
-         block_state_doc.append( kvp( "block_header_state", value ) );
-      } catch( bsoncxx::exception& ) {
-         try {
-            json = fc::prune_invalid_utf8( json );
-            const auto& value = bsoncxx::from_json( json );
-            block_state_doc.append( kvp( "block_header_state", value ) );
-            block_state_doc.append( kvp( "non-utf8-purged", b_bool{true} ) );
-         } catch( bsoncxx::exception& e ) {
-            elog( "Unable to convert block_header_state JSON to MongoDB JSON: ${e}", ("e", e.what()) );
-            elog( "  JSON: ${j}", ("j", json) );
-         }
-      }
-      block_state_doc.append( kvp( "createdAt", b_date{now} ) );
+   //    auto json = fc::json::to_string( bhs );
+   //    try {
+   //       const auto& value = bsoncxx::from_json( json );
+   //       block_state_doc.append( kvp( "block_header_state", value ) );
+   //    } catch( bsoncxx::exception& ) {
+   //       try {
+   //          json = fc::prune_invalid_utf8( json );
+   //          const auto& value = bsoncxx::from_json( json );
+   //          block_state_doc.append( kvp( "block_header_state", value ) );
+   //          block_state_doc.append( kvp( "non-utf8-purged", b_bool{true} ) );
+   //       } catch( bsoncxx::exception& e ) {
+   //          elog( "Unable to convert block_header_state JSON to MongoDB JSON: ${e}", ("e", e.what()) );
+   //          elog( "  JSON: ${j}", ("j", json) );
+   //       }
+   //    }
+   //    block_state_doc.append( kvp( "createdAt", b_date{now} ) );
 
-      try {
-         if( update_blocks_via_block_num ) {
-            if( !_block_states.update_one( make_document( kvp( "block_num", b_int32{static_cast<int32_t>(block_num)} ) ),
-                                           make_document( kvp( "$set", block_state_doc.view() ) ), update_opts ) ) {
-               EOS_ASSERT( false, chain::mongo_db_insert_fail, "Failed to insert block_state ${num}", ("num", block_num) );
-            }
-         } else {
-            if( !_block_states.update_one( make_document( kvp( "block_id", block_id_str ) ),
-                                           make_document( kvp( "$set", block_state_doc.view() ) ), update_opts ) ) {
-               EOS_ASSERT( false, chain::mongo_db_insert_fail, "Failed to insert block_state ${bid}", ("bid", block_id) );
-            }
-         }
-      } catch( ... ) {
-         handle_mongo_exception( "block_states insert: " + json, __LINE__ );
-      }
-   }
+   //    try {
+   //       if( update_blocks_via_block_num ) {
+   //          if( !_block_states.update_one( make_document( kvp( "block_num", b_int32{static_cast<int32_t>(block_num)} ) ),
+   //                                         make_document( kvp( "$set", block_state_doc.view() ) ), update_opts ) ) {
+   //             EOS_ASSERT( false, chain::mongo_db_insert_fail, "Failed to insert block_state ${num}", ("num", block_num) );
+   //          }
+   //       } else {
+   //          if( !_block_states.update_one( make_document( kvp( "block_id", block_id_str ) ),
+   //                                         make_document( kvp( "$set", block_state_doc.view() ) ), update_opts ) ) {
+   //             EOS_ASSERT( false, chain::mongo_db_insert_fail, "Failed to insert block_state ${bid}", ("bid", block_id) );
+   //          }
+   //       }
+   //    } catch( ... ) {
+   //       handle_mongo_exception( "block_states insert: " + json, __LINE__ );
+   //    }
+   // }
 
-   if( store_blocks ) {
-      auto block_doc = bsoncxx::builder::basic::document{};
-      block_doc.append( kvp( "block_num", b_int32{static_cast<int32_t>(block_num)} ),
-                        kvp( "block_id", block_id_str ) );
+   // if( store_blocks ) {
+   //    auto block_doc = bsoncxx::builder::basic::document{};
+   //    block_doc.append( kvp( "block_num", b_int32{static_cast<int32_t>(block_num)} ),
+   //                      kvp( "block_id", block_id_str ) );
 
-      auto v = to_variant_with_abi( *bs->block );
-      auto json = fc::json::to_string( v );
-      try {
-         const auto& value = bsoncxx::from_json( json );
-         block_doc.append( kvp( "block", value ) );
-      } catch( bsoncxx::exception& ) {
-         try {
-            json = fc::prune_invalid_utf8( json );
-            const auto& value = bsoncxx::from_json( json );
-            block_doc.append( kvp( "block", value ) );
-            block_doc.append( kvp( "non-utf8-purged", b_bool{true} ) );
-         } catch( bsoncxx::exception& e ) {
-            elog( "Unable to convert block JSON to MongoDB JSON: ${e}", ("e", e.what()) );
-            elog( "  JSON: ${j}", ("j", json) );
-         }
-      }
-      block_doc.append( kvp( "createdAt", b_date{now} ) );
+   //    auto v = to_variant_with_abi( *bs->block );
+   //    auto json = fc::json::to_string( v );
+   //    try {
+   //       const auto& value = bsoncxx::from_json( json );
+   //       block_doc.append( kvp( "block", value ) );
+   //    } catch( bsoncxx::exception& ) {
+   //       try {
+   //          json = fc::prune_invalid_utf8( json );
+   //          const auto& value = bsoncxx::from_json( json );
+   //          block_doc.append( kvp( "block", value ) );
+   //          block_doc.append( kvp( "non-utf8-purged", b_bool{true} ) );
+   //       } catch( bsoncxx::exception& e ) {
+   //          elog( "Unable to convert block JSON to MongoDB JSON: ${e}", ("e", e.what()) );
+   //          elog( "  JSON: ${j}", ("j", json) );
+   //       }
+   //    }
+   //    block_doc.append( kvp( "createdAt", b_date{now} ) );
 
-      try {
-         if( update_blocks_via_block_num ) {
-            if( !_blocks.update_one( make_document( kvp( "block_num", b_int32{static_cast<int32_t>(block_num)} ) ),
-                                     make_document( kvp( "$set", block_doc.view() ) ), update_opts ) ) {
-               EOS_ASSERT( false, chain::mongo_db_insert_fail, "Failed to insert block ${num}", ("num", block_num) );
-            }
-         } else {
-            if( !_blocks.update_one( make_document( kvp( "block_id", block_id_str ) ),
-                                     make_document( kvp( "$set", block_doc.view() ) ), update_opts ) ) {
-               EOS_ASSERT( false, chain::mongo_db_insert_fail, "Failed to insert block ${bid}", ("bid", block_id) );
-            }
-         }
-      } catch( ... ) {
-         handle_mongo_exception( "blocks insert: " + json, __LINE__ );
-      }
-   }
+   //    try {
+   //       if( update_blocks_via_block_num ) {
+   //          if( !_blocks.update_one( make_document( kvp( "block_num", b_int32{static_cast<int32_t>(block_num)} ) ),
+   //                                   make_document( kvp( "$set", block_doc.view() ) ), update_opts ) ) {
+   //             EOS_ASSERT( false, chain::mongo_db_insert_fail, "Failed to insert block ${num}", ("num", block_num) );
+   //          }
+   //       } else {
+   //          if( !_blocks.update_one( make_document( kvp( "block_id", block_id_str ) ),
+   //                                   make_document( kvp( "$set", block_doc.view() ) ), update_opts ) ) {
+   //             EOS_ASSERT( false, chain::mongo_db_insert_fail, "Failed to insert block ${bid}", ("bid", block_id) );
+   //          }
+   //       }
+   //    } catch( ... ) {
+   //       handle_mongo_exception( "blocks insert: " + json, __LINE__ );
+   //    }
+   // }
 }
 
 void mongo_match_plugin_impl::_process_irreversible_block(const chain::block_state_ptr& bs)
@@ -1140,117 +1155,117 @@ void mongo_match_plugin_impl::_process_irreversible_block(const chain::block_sta
    // }
 }
 
-void mongo_match_plugin_impl::add_pub_keys( const vector<chain::key_weight>& keys, const account_name& name,
-                                         const permission_name& permission, const std::chrono::milliseconds& now )
-{
-   using bsoncxx::builder::basic::kvp;
-   using bsoncxx::builder::basic::make_document;
-   using namespace bsoncxx::types;
+// void mongo_match_plugin_impl::add_pub_keys( const vector<chain::key_weight>& keys, const account_name& name,
+//                                          const permission_name& permission, const std::chrono::milliseconds& now )
+// {
+//    using bsoncxx::builder::basic::kvp;
+//    using bsoncxx::builder::basic::make_document;
+//    using namespace bsoncxx::types;
 
-   if( keys.empty()) return;
+//    if( keys.empty()) return;
 
-   mongocxx::bulk_write bulk = _pub_keys.create_bulk_write();
+//    mongocxx::bulk_write bulk = _pub_keys.create_bulk_write();
 
-   for( const auto& pub_key_weight : keys ) {
-      auto find_doc = bsoncxx::builder::basic::document();
+//    for( const auto& pub_key_weight : keys ) {
+//       auto find_doc = bsoncxx::builder::basic::document();
 
-      find_doc.append( kvp( "account", name.to_string()),
-                       kvp( "public_key", pub_key_weight.key.operator string()),
-                       kvp( "permission", permission.to_string()) );
+//       find_doc.append( kvp( "account", name.to_string()),
+//                        kvp( "public_key", pub_key_weight.key.operator string()),
+//                        kvp( "permission", permission.to_string()) );
 
-      auto update_doc = make_document( kvp( "$set", make_document( bsoncxx::builder::concatenate_doc{find_doc.view()},
-                                                                   kvp( "createdAt", b_date{now} ))));
+//       auto update_doc = make_document( kvp( "$set", make_document( bsoncxx::builder::concatenate_doc{find_doc.view()},
+//                                                                    kvp( "createdAt", b_date{now} ))));
 
-      mongocxx::model::update_one insert_op{find_doc.view(), update_doc.view()};
-      insert_op.upsert(true);
-      bulk.append( insert_op );
-   }
+//       mongocxx::model::update_one insert_op{find_doc.view(), update_doc.view()};
+//       insert_op.upsert(true);
+//       bulk.append( insert_op );
+//    }
 
-   try {
-      if( !bulk.execute()) {
-         EOS_ASSERT( false, chain::mongo_db_insert_fail,
-                     "Bulk pub_keys insert failed for account: ${a}, permission: ${p}",
-                     ("a", name)( "p", permission ));
-      }
-   } catch (...) {
-      handle_mongo_exception( "pub_keys insert", __LINE__ );
-   }
-}
+//    try {
+//       if( !bulk.execute()) {
+//          EOS_ASSERT( false, chain::mongo_db_insert_fail,
+//                      "Bulk pub_keys insert failed for account: ${a}, permission: ${p}",
+//                      ("a", name)( "p", permission ));
+//       }
+//    } catch (...) {
+//       handle_mongo_exception( "pub_keys insert", __LINE__ );
+//    }
+// }
 
-void mongo_match_plugin_impl::remove_pub_keys( const account_name& name, const permission_name& permission )
-{
-   using bsoncxx::builder::basic::kvp;
-   using bsoncxx::builder::basic::make_document;
+// void mongo_match_plugin_impl::remove_pub_keys( const account_name& name, const permission_name& permission )
+// {
+//    using bsoncxx::builder::basic::kvp;
+//    using bsoncxx::builder::basic::make_document;
 
-   try {
-      auto result = _pub_keys.delete_many( make_document( kvp( "account", name.to_string()),
-                                                         kvp( "permission", permission.to_string())));
-      if( !result ) {
-         EOS_ASSERT( false, chain::mongo_db_update_fail,
-                     "pub_keys delete failed for account: ${a}, permission: ${p}",
-                     ("a", name)( "p", permission ));
-      }
-   } catch (...) {
-      handle_mongo_exception( "pub_keys delete", __LINE__ );
-   }
-}
+//    try {
+//       auto result = _pub_keys.delete_many( make_document( kvp( "account", name.to_string()),
+//                                                          kvp( "permission", permission.to_string())));
+//       if( !result ) {
+//          EOS_ASSERT( false, chain::mongo_db_update_fail,
+//                      "pub_keys delete failed for account: ${a}, permission: ${p}",
+//                      ("a", name)( "p", permission ));
+//       }
+//    } catch (...) {
+//       handle_mongo_exception( "pub_keys delete", __LINE__ );
+//    }
+// }
 
-void mongo_match_plugin_impl::add_account_control( const vector<chain::permission_level_weight>& controlling_accounts,
-                                                const account_name& name, const permission_name& permission,
-                                                const std::chrono::milliseconds& now )
-{
-   using bsoncxx::builder::basic::kvp;
-   using bsoncxx::builder::basic::make_document;
-   using namespace bsoncxx::types;
+// void mongo_match_plugin_impl::add_account_control( const vector<chain::permission_level_weight>& controlling_accounts,
+//                                                 const account_name& name, const permission_name& permission,
+//                                                 const std::chrono::milliseconds& now )
+// {
+//    using bsoncxx::builder::basic::kvp;
+//    using bsoncxx::builder::basic::make_document;
+//    using namespace bsoncxx::types;
 
-   if( controlling_accounts.empty()) return;
+//    if( controlling_accounts.empty()) return;
 
-   mongocxx::bulk_write bulk = _account_controls.create_bulk_write();
+//    mongocxx::bulk_write bulk = _account_controls.create_bulk_write();
 
-   for( const auto& controlling_account : controlling_accounts ) {
-      auto find_doc = bsoncxx::builder::basic::document();
+//    for( const auto& controlling_account : controlling_accounts ) {
+//       auto find_doc = bsoncxx::builder::basic::document();
 
-      find_doc.append( kvp( "controlled_account", name.to_string()),
-                       kvp( "controlled_permission", permission.to_string()),
-                       kvp( "controlling_account", controlling_account.permission.actor.to_string()) );
+//       find_doc.append( kvp( "controlled_account", name.to_string()),
+//                        kvp( "controlled_permission", permission.to_string()),
+//                        kvp( "controlling_account", controlling_account.permission.actor.to_string()) );
 
-      auto update_doc = make_document( kvp( "$set", make_document( bsoncxx::builder::concatenate_doc{find_doc.view()},
-                                                                   kvp( "createdAt", b_date{now} ))));
+//       auto update_doc = make_document( kvp( "$set", make_document( bsoncxx::builder::concatenate_doc{find_doc.view()},
+//                                                                    kvp( "createdAt", b_date{now} ))));
 
 
-      mongocxx::model::update_one insert_op{find_doc.view(), update_doc.view()};
-      insert_op.upsert(true);
-      bulk.append( insert_op );
-   }
+//       mongocxx::model::update_one insert_op{find_doc.view(), update_doc.view()};
+//       insert_op.upsert(true);
+//       bulk.append( insert_op );
+//    }
 
-   try {
-      if( !bulk.execute()) {
-         EOS_ASSERT( false, chain::mongo_db_insert_fail,
-                     "Bulk account_controls insert failed for account: ${a}, permission: ${p}",
-                     ("a", name)( "p", permission ));
-      }
-   } catch (...) {
-      handle_mongo_exception( "account_controls insert", __LINE__ );
-   }
-}
+//    try {
+//       if( !bulk.execute()) {
+//          EOS_ASSERT( false, chain::mongo_db_insert_fail,
+//                      "Bulk account_controls insert failed for account: ${a}, permission: ${p}",
+//                      ("a", name)( "p", permission ));
+//       }
+//    } catch (...) {
+//       handle_mongo_exception( "account_controls insert", __LINE__ );
+//    }
+// }
 
-void mongo_match_plugin_impl::remove_account_control( const account_name& name, const permission_name& permission )
-{
-   using bsoncxx::builder::basic::kvp;
-   using bsoncxx::builder::basic::make_document;
+// void mongo_match_plugin_impl::remove_account_control( const account_name& name, const permission_name& permission )
+// {
+//    using bsoncxx::builder::basic::kvp;
+//    using bsoncxx::builder::basic::make_document;
 
-   try {
-      auto result = _account_controls.delete_many( make_document( kvp( "controlled_account", name.to_string()),
-                                                                  kvp( "controlled_permission", permission.to_string())));
-      if( !result ) {
-         EOS_ASSERT( false, chain::mongo_db_update_fail,
-                     "account_controls delete failed for account: ${a}, permission: ${p}",
-                     ("a", name)( "p", permission ));
-      }
-   } catch (...) {
-      handle_mongo_exception( "account_controls delete", __LINE__ );
-   }
-}
+//    try {
+//       auto result = _account_controls.delete_many( make_document( kvp( "controlled_account", name.to_string()),
+//                                                                   kvp( "controlled_permission", permission.to_string())));
+//       if( !result ) {
+//          EOS_ASSERT( false, chain::mongo_db_update_fail,
+//                      "account_controls delete failed for account: ${a}, permission: ${p}",
+//                      ("a", name)( "p", permission ));
+//       }
+//    } catch (...) {
+//       handle_mongo_exception( "account_controls delete", __LINE__ );
+//    }
+// }
 
 namespace {
 
@@ -1277,81 +1292,81 @@ void create_account( mongocxx::collection& accounts, const name& name, std::chro
 
 }
 
-void mongo_match_plugin_impl::update_account(const chain::action& act)
-{
-   using bsoncxx::builder::basic::kvp;
-   using bsoncxx::builder::basic::make_document;
-   using namespace bsoncxx::types;
+// void mongo_match_plugin_impl::update_account(const chain::action& act)
+// {
+//    using bsoncxx::builder::basic::kvp;
+//    using bsoncxx::builder::basic::make_document;
+//    using namespace bsoncxx::types;
 
-   if (act.account != chain::config::system_account_name)
-      return;
+//    if (act.account != chain::config::system_account_name)
+//       return;
 
-   try {
-      if( act.name == newaccount ) {
-         std::chrono::milliseconds now = std::chrono::duration_cast<std::chrono::milliseconds>(
-               std::chrono::microseconds{fc::time_point::now().time_since_epoch().count()} );
-         auto newacc = act.data_as<chain::newaccount>();
+//    try {
+//       if( act.name == newaccount ) {
+//          std::chrono::milliseconds now = std::chrono::duration_cast<std::chrono::milliseconds>(
+//                std::chrono::microseconds{fc::time_point::now().time_since_epoch().count()} );
+//          auto newacc = act.data_as<chain::newaccount>();
 
-         create_account( _accounts, newacc.name, now );
+//          create_account( _accounts, newacc.name, now );
 
-         add_pub_keys( newacc.owner.keys, newacc.name, owner, now );
-         add_account_control( newacc.owner.accounts, newacc.name, owner, now );
-         add_pub_keys( newacc.active.keys, newacc.name, active, now );
-         add_account_control( newacc.active.accounts, newacc.name, active, now );
+//          add_pub_keys( newacc.owner.keys, newacc.name, owner, now );
+//          add_account_control( newacc.owner.accounts, newacc.name, owner, now );
+//          add_pub_keys( newacc.active.keys, newacc.name, active, now );
+//          add_account_control( newacc.active.accounts, newacc.name, active, now );
 
-      } else if( act.name == updateauth ) {
-         auto now = std::chrono::duration_cast<std::chrono::milliseconds>(
-               std::chrono::microseconds{fc::time_point::now().time_since_epoch().count()} );
-         const auto update = act.data_as<chain::updateauth>();
-         remove_pub_keys(update.account, update.permission);
-         remove_account_control(update.account, update.permission);
-         add_pub_keys(update.auth.keys, update.account, update.permission, now);
-         add_account_control(update.auth.accounts, update.account, update.permission, now);
+//       } else if( act.name == updateauth ) {
+//          auto now = std::chrono::duration_cast<std::chrono::milliseconds>(
+//                std::chrono::microseconds{fc::time_point::now().time_since_epoch().count()} );
+//          const auto update = act.data_as<chain::updateauth>();
+//          remove_pub_keys(update.account, update.permission);
+//          remove_account_control(update.account, update.permission);
+//          add_pub_keys(update.auth.keys, update.account, update.permission, now);
+//          add_account_control(update.auth.accounts, update.account, update.permission, now);
 
-      } else if( act.name == deleteauth ) {
-         const auto del = act.data_as<chain::deleteauth>();
-         remove_pub_keys( del.account, del.permission );
-         remove_account_control(del.account, del.permission);
+//       } else if( act.name == deleteauth ) {
+//          const auto del = act.data_as<chain::deleteauth>();
+//          remove_pub_keys( del.account, del.permission );
+//          remove_account_control(del.account, del.permission);
 
-      } else if( act.name == setabi ) {
-         auto now = std::chrono::duration_cast<std::chrono::milliseconds>(
-               std::chrono::microseconds{fc::time_point::now().time_since_epoch().count()} );
-         auto setabi = act.data_as<chain::setabi>();
+//       } else if( act.name == setabi ) {
+//          auto now = std::chrono::duration_cast<std::chrono::milliseconds>(
+//                std::chrono::microseconds{fc::time_point::now().time_since_epoch().count()} );
+//          auto setabi = act.data_as<chain::setabi>();
 
-         abi_cache_index.erase( setabi.account );
+//          abi_cache_index.erase( setabi.account );
 
-         auto account = find_account( _accounts, setabi.account );
-         if( !account ) {
-            create_account( _accounts, setabi.account, now );
-            account = find_account( _accounts, setabi.account );
-         }
-         if( account ) {
-            abi_def abi_def = fc::raw::unpack<chain::abi_def>( setabi.abi );
-            const string json_str = fc::json::to_string( abi_def );
+//          auto account = find_account( _accounts, setabi.account );
+//          if( !account ) {
+//             create_account( _accounts, setabi.account, now );
+//             account = find_account( _accounts, setabi.account );
+//          }
+//          if( account ) {
+//             abi_def abi_def = fc::raw::unpack<chain::abi_def>( setabi.abi );
+//             const string json_str = fc::json::to_string( abi_def );
 
-            try{
-               auto update_from = make_document(
-                     kvp( "$set", make_document( kvp( "abi", bsoncxx::from_json( json_str )),
-                                                 kvp( "updatedAt", b_date{now} ))));
+//             try{
+//                auto update_from = make_document(
+//                      kvp( "$set", make_document( kvp( "abi", bsoncxx::from_json( json_str )),
+//                                                  kvp( "updatedAt", b_date{now} ))));
 
-               try {
-                  if( !_accounts.update_one( make_document( kvp( "_id", account->view()["_id"].get_oid())),
-                                             update_from.view())) {
-                     EOS_ASSERT( false, chain::mongo_db_update_fail, "Failed to udpdate account ${n}", ("n", setabi.account));
-                  }
-               } catch( ... ) {
-                  handle_mongo_exception( "account update", __LINE__ );
-               }
-            } catch( bsoncxx::exception& e ) {
-               elog( "Unable to convert abi JSON to MongoDB JSON: ${e}", ("e", e.what()));
-               elog( "  JSON: ${j}", ("j", json_str));
-            }
-         }
-      }
-   } catch( fc::exception& e ) {
-      // if unable to unpack native type, skip account creation
-   }
-}
+//                try {
+//                   if( !_accounts.update_one( make_document( kvp( "_id", account->view()["_id"].get_oid())),
+//                                              update_from.view())) {
+//                      EOS_ASSERT( false, chain::mongo_db_update_fail, "Failed to udpdate account ${n}", ("n", setabi.account));
+//                   }
+//                } catch( ... ) {
+//                   handle_mongo_exception( "account update", __LINE__ );
+//                }
+//             } catch( bsoncxx::exception& e ) {
+//                elog( "Unable to convert abi JSON to MongoDB JSON: ${e}", ("e", e.what()));
+//                elog( "  JSON: ${j}", ("j", json_str));
+//             }
+//          }
+//       }
+//    } catch( fc::exception& e ) {
+//       // if unable to unpack native type, skip account creation
+//    }
+// }
 
 mongo_match_plugin_impl::mongo_match_plugin_impl()
 {
@@ -1379,23 +1394,23 @@ void mongo_match_plugin_impl::wipe_database() {
    auto client = mongo_pool->acquire();
    auto& mongo_conn = *client;
 
-   auto block_states = mongo_conn[db_name][block_states_col];
-   auto blocks = mongo_conn[db_name][blocks_col];
-   auto trans = mongo_conn[db_name][trans_col];
-   auto trans_traces = mongo_conn[db_name][trans_traces_col];
-   auto action_traces = mongo_conn[db_name][action_traces_col];
-   auto accounts = mongo_conn[db_name][accounts_col];
-   auto pub_keys = mongo_conn[db_name][pub_keys_col];
-   auto account_controls = mongo_conn[db_name][account_controls_col];
+   // auto block_states = mongo_conn[db_name][block_states_col];
+   // auto blocks = mongo_conn[db_name][blocks_col];
+   // auto trans = mongo_conn[db_name][trans_col];
+   // auto trans_traces = mongo_conn[db_name][trans_traces_col];
+   // auto action_traces = mongo_conn[db_name][action_traces_col];
+   // auto accounts = mongo_conn[db_name][accounts_col];
+   // auto pub_keys = mongo_conn[db_name][pub_keys_col];
+   // auto account_controls = mongo_conn[db_name][account_controls_col];
 
-   block_states.drop();
-   blocks.drop();
-   trans.drop();
-   trans_traces.drop();
-   action_traces.drop();
-   accounts.drop();
-   pub_keys.drop();
-   account_controls.drop();
+   // block_states.drop();
+   // blocks.drop();
+   // trans.drop();
+   // trans_traces.drop();
+   // action_traces.drop();
+   // accounts.drop();
+   // pub_keys.drop();
+   // account_controls.drop();
    ilog("done wipe_database");
 }
 
@@ -1411,90 +1426,90 @@ chain::public_key_type  get_public_key( name keyname, string role ) {
 
 void mongo_match_plugin_impl::insert_default_abi()
 {
-   using bsoncxx::builder::basic::kvp;
-   using bsoncxx::builder::basic::make_document;
-   using namespace bsoncxx::types;
-   if (b_insert_default_abi) return ;
-      std::chrono::milliseconds now = std::chrono::duration_cast<std::chrono::milliseconds>(
-      std::chrono::microseconds{fc::time_point::now().time_since_epoch().count()} );
-      account_name name_account = N(eosio.token);
-      {
-         abi_cache_index.erase( name_account );
-         chain::newaccount newacc{
-                                 .creator  = N(eosio),
-                                 .name     = name_account,
-                                 .owner    = authority( get_public_key( name_account, "owner" ) ),
-                                 .active   = authority( get_public_key( name_account, "active" ) )
-                                 };
-         create_account( _accounts, name_account, now );
-         add_pub_keys( newacc.owner.keys, name_account, owner, now );
-         add_account_control( newacc.owner.accounts, name_account, owner, now );
-         add_pub_keys( newacc.active.keys, name_account, active, now );
-         add_account_control( newacc.active.accounts, name_account, active, now ); 
+   // using bsoncxx::builder::basic::kvp;
+   // using bsoncxx::builder::basic::make_document;
+   // using namespace bsoncxx::types;
+   // if (b_insert_default_abi) return ;
+   //    std::chrono::milliseconds now = std::chrono::duration_cast<std::chrono::milliseconds>(
+   //    std::chrono::microseconds{fc::time_point::now().time_since_epoch().count()} );
+   //    account_name name_account = N(eosio.token);
+   //    {
+   //       abi_cache_index.erase( name_account );
+   //       chain::newaccount newacc{
+   //                               .creator  = N(eosio),
+   //                               .name     = name_account,
+   //                               .owner    = authority( get_public_key( name_account, "owner" ) ),
+   //                               .active   = authority( get_public_key( name_account, "active" ) )
+   //                               };
+   //       create_account( _accounts, name_account, now );
+   //       add_pub_keys( newacc.owner.keys, name_account, owner, now );
+   //       add_account_control( newacc.owner.accounts, name_account, owner, now );
+   //       add_pub_keys( newacc.active.keys, name_account, active, now );
+   //       add_account_control( newacc.active.accounts, name_account, active, now ); 
 
-         auto account = find_account( _accounts, name_account );
-         auto abiPath = app().config_dir() / "eosio.token" += ".abi";
-         FC_ASSERT( fc::exists( abiPath ), "no abi file found ");
-         auto abijson = fc::json::from_file(abiPath).as<abi_def>();
-         auto abi = fc::raw::pack(abijson);
-         abi_def abi_def = fc::raw::unpack<chain::abi_def>( abi );
-         const string json_str = fc::json::to_string( abi_def );
-         try{
-               auto update_from = make_document(
-                     kvp( "$set", make_document( kvp( "abi", bsoncxx::from_json( json_str )),
-                                                 kvp( "updatedAt", b_date{now} ))));
+   //       auto account = find_account( _accounts, name_account );
+   //       auto abiPath = app().config_dir() / "eosio.token" += ".abi";
+   //       FC_ASSERT( fc::exists( abiPath ), "no abi file found ");
+   //       auto abijson = fc::json::from_file(abiPath).as<abi_def>();
+   //       auto abi = fc::raw::pack(abijson);
+   //       abi_def abi_def = fc::raw::unpack<chain::abi_def>( abi );
+   //       const string json_str = fc::json::to_string( abi_def );
+   //       try{
+   //             auto update_from = make_document(
+   //                   kvp( "$set", make_document( kvp( "abi", bsoncxx::from_json( json_str )),
+   //                                               kvp( "updatedAt", b_date{now} ))));
 
-               try {
-                  if( !_accounts.update_one( make_document( kvp( "_id", account->view()["_id"].get_oid())),
-                                            update_from.view())) {
-                     EOS_ASSERT( false, chain::mongo_db_update_fail, "Failed to udpdate account ${n}", ("n", name_account));
-                  }
-               } catch( ... ) {
-                  handle_mongo_exception( "account update", __LINE__ );
-               }
-            } catch( bsoncxx::exception& e ) {
-               elog( "Unable to convert abi JSON to MongoDB JSON: ${e}", ("e", e.what()));
-               elog( "  JSON: ${j}", ("j", json_str));
-            }
-      }
-      get_abi_serializer(name_account);
-      name_account = N(eosio);
-      {
-         abi_cache_index.erase( name_account );
-         //std::string strContract01("System01");
-         //std::string strContract("System");   
-         auto account = find_account( _accounts, name_account );
-         fc::path abiPath;
-         if(b_use_system01)
-         { abiPath = app().config_dir() / "System01" += ".abi"; }
-         else
-         { abiPath = app().config_dir() / "System" += ".abi"; }
+   //             try {
+   //                if( !_accounts.update_one( make_document( kvp( "_id", account->view()["_id"].get_oid())),
+   //                                          update_from.view())) {
+   //                   EOS_ASSERT( false, chain::mongo_db_update_fail, "Failed to udpdate account ${n}", ("n", name_account));
+   //                }
+   //             } catch( ... ) {
+   //                handle_mongo_exception( "account update", __LINE__ );
+   //             }
+   //          } catch( bsoncxx::exception& e ) {
+   //             elog( "Unable to convert abi JSON to MongoDB JSON: ${e}", ("e", e.what()));
+   //             elog( "  JSON: ${j}", ("j", json_str));
+   //          }
+   //    }
+   //    get_abi_serializer(name_account);
+   //    name_account = N(eosio);
+   //    {
+   //       abi_cache_index.erase( name_account );
+   //       //std::string strContract01("System01");
+   //       //std::string strContract("System");   
+   //       auto account = find_account( _accounts, name_account );
+   //       fc::path abiPath;
+   //       if(b_use_system01)
+   //       { abiPath = app().config_dir() / "System01" += ".abi"; }
+   //       else
+   //       { abiPath = app().config_dir() / "System" += ".abi"; }
          
-         FC_ASSERT( fc::exists( abiPath ), "no abi file found ");
-         auto abijson = fc::json::from_file(abiPath).as<abi_def>();
-         auto abi = fc::raw::pack(abijson);
-         abi_def abi_def = fc::raw::unpack<chain::abi_def>( abi );
-         const string json_str = fc::json::to_string( abi_def );
-         try{
-               auto update_from = make_document(
-                     kvp( "$set", make_document( kvp( "abi", bsoncxx::from_json( json_str )),
-                                                 kvp( "updatedAt", b_date{now} ))));
+   //       FC_ASSERT( fc::exists( abiPath ), "no abi file found ");
+   //       auto abijson = fc::json::from_file(abiPath).as<abi_def>();
+   //       auto abi = fc::raw::pack(abijson);
+   //       abi_def abi_def = fc::raw::unpack<chain::abi_def>( abi );
+   //       const string json_str = fc::json::to_string( abi_def );
+   //       try{
+   //             auto update_from = make_document(
+   //                   kvp( "$set", make_document( kvp( "abi", bsoncxx::from_json( json_str )),
+   //                                               kvp( "updatedAt", b_date{now} ))));
 
-               try {
-                  if( !_accounts.update_one( make_document( kvp( "_id", account->view()["_id"].get_oid())),
-                                            update_from.view())) {
-                     EOS_ASSERT( false, chain::mongo_db_update_fail, "Failed to udpdate account ${n}", ("n", name_account));
-                  }
-               } catch( ... ) {
-                  handle_mongo_exception( "account update", __LINE__ );
-               }
-            } catch( bsoncxx::exception& e ) {
-               elog( "Unable to convert abi JSON to MongoDB JSON: ${e}", ("e", e.what()));
-               elog( "  JSON: ${j}", ("j", json_str));
-            }
+   //             try {
+   //                if( !_accounts.update_one( make_document( kvp( "_id", account->view()["_id"].get_oid())),
+   //                                          update_from.view())) {
+   //                   EOS_ASSERT( false, chain::mongo_db_update_fail, "Failed to udpdate account ${n}", ("n", name_account));
+   //                }
+   //             } catch( ... ) {
+   //                handle_mongo_exception( "account update", __LINE__ );
+   //             }
+   //          } catch( bsoncxx::exception& e ) {
+   //             elog( "Unable to convert abi JSON to MongoDB JSON: ${e}", ("e", e.what()));
+   //             elog( "  JSON: ${j}", ("j", json_str));
+   //          }
 
-      }
-      get_abi_serializer(name_account);
+   //    }
+   //    get_abi_serializer(name_account);
       b_insert_default_abi = true;
 }
 
@@ -1543,84 +1558,84 @@ void mongo_match_plugin_impl::init() {
       auto client = mongo_pool->acquire();
       auto& mongo_conn = *client;
 
-      auto accounts = mongo_conn[db_name][accounts_col];
-      if( accounts.count( make_document()) == 0 ) {
-         auto now = std::chrono::duration_cast<std::chrono::milliseconds>(
-               std::chrono::microseconds{fc::time_point::now().time_since_epoch().count()} );
+      // auto accounts = mongo_conn[db_name][accounts_col];
+      // if( accounts.count( make_document()) == 0 ) {
+      //    auto now = std::chrono::duration_cast<std::chrono::milliseconds>(
+      //          std::chrono::microseconds{fc::time_point::now().time_since_epoch().count()} );
 
-         auto doc = make_document( kvp( "name", name( chain::config::system_account_name ).to_string()),
-                                   kvp( "createdAt", b_date{now} ));
+      //    auto doc = make_document( kvp( "name", name( chain::config::system_account_name ).to_string()),
+      //                              kvp( "createdAt", b_date{now} ));
 
-         try {
-            if( !accounts.insert_one( doc.view())) {
-               EOS_ASSERT( false, chain::mongo_db_insert_fail, "Failed to insert account ${n}",
-                           ("n", name( chain::config::system_account_name ).to_string()));
-            }
-         } catch (...) {
-            handle_mongo_exception( "account insert", __LINE__ );
-         }
+      //    try {
+      //       if( !accounts.insert_one( doc.view())) {
+      //          EOS_ASSERT( false, chain::mongo_db_insert_fail, "Failed to insert account ${n}",
+      //                      ("n", name( chain::config::system_account_name ).to_string()));
+      //       }
+      //    } catch (...) {
+      //       handle_mongo_exception( "account insert", __LINE__ );
+      //    }
 
-         try {
-            // MongoDB administrators (to enable sharding) :
-            //   1. enableSharding database (default to EOS)
-            //   2. shardCollection: blocks, action_traces, transaction_traces, especially action_traces
-            //   3. Compound index with shard key (default to _id below), to improve query performance.
+      //    try {
+      //       // MongoDB administrators (to enable sharding) :
+      //       //   1. enableSharding database (default to EOS)
+      //       //   2. shardCollection: blocks, action_traces, transaction_traces, especially action_traces
+      //       //   3. Compound index with shard key (default to _id below), to improve query performance.
 
-            // blocks indexes
-            auto blocks = mongo_conn[db_name][blocks_col];
-            blocks.create_index( bsoncxx::from_json( R"xxx({ "block_num" : 1, "_id" : 1 })xxx" ));
-            blocks.create_index( bsoncxx::from_json( R"xxx({ "block_id" : 1, "_id" : 1 })xxx" ));
+      //       // blocks indexes
+      //       auto blocks = mongo_conn[db_name][blocks_col];
+      //       blocks.create_index( bsoncxx::from_json( R"xxx({ "block_num" : 1, "_id" : 1 })xxx" ));
+      //       blocks.create_index( bsoncxx::from_json( R"xxx({ "block_id" : 1, "_id" : 1 })xxx" ));
 
-            auto block_states = mongo_conn[db_name][block_states_col];
-            block_states.create_index( bsoncxx::from_json( R"xxx({ "block_num" : 1, "_id" : 1 })xxx" ));
-            block_states.create_index( bsoncxx::from_json( R"xxx({ "block_id" : 1, "_id" : 1 })xxx" ));
+      //       auto block_states = mongo_conn[db_name][block_states_col];
+      //       block_states.create_index( bsoncxx::from_json( R"xxx({ "block_num" : 1, "_id" : 1 })xxx" ));
+      //       block_states.create_index( bsoncxx::from_json( R"xxx({ "block_id" : 1, "_id" : 1 })xxx" ));
 
-            // accounts indexes
-            accounts.create_index( bsoncxx::from_json( R"xxx({ "name" : 1, "_id" : 1 })xxx" ));
+      //       // accounts indexes
+      //       accounts.create_index( bsoncxx::from_json( R"xxx({ "name" : 1, "_id" : 1 })xxx" ));
 
-            // transactions indexes
-            auto trans = mongo_conn[db_name][trans_col];
-            trans.create_index( bsoncxx::from_json( R"xxx({ "trx_id" : 1, "_id" : 1 })xxx" ));
+      //       // transactions indexes
+      //       auto trans = mongo_conn[db_name][trans_col];
+      //       trans.create_index( bsoncxx::from_json( R"xxx({ "trx_id" : 1, "_id" : 1 })xxx" ));
 
-            auto trans_trace = mongo_conn[db_name][trans_traces_col];
-            trans_trace.create_index( bsoncxx::from_json( R"xxx({ "id" : 1, "_id" : 1 })xxx" ));
+      //       auto trans_trace = mongo_conn[db_name][trans_traces_col];
+      //       trans_trace.create_index( bsoncxx::from_json( R"xxx({ "id" : 1, "_id" : 1 })xxx" ));
 
-            // action traces indexes
-            auto action_traces = mongo_conn[db_name][action_traces_col];
-            action_traces.create_index( bsoncxx::from_json( R"xxx({ "block_num" : 1, "_id" : 1 })xxx" ));
+      //       // action traces indexes
+      //       auto action_traces = mongo_conn[db_name][action_traces_col];
+      //       action_traces.create_index( bsoncxx::from_json( R"xxx({ "block_num" : 1, "_id" : 1 })xxx" ));
 
-            // pub_keys indexes
-            auto pub_keys = mongo_conn[db_name][pub_keys_col];
-            pub_keys.create_index( bsoncxx::from_json( R"xxx({ "account" : 1, "permission" : 1, "_id" : 1 })xxx" ));
-            pub_keys.create_index( bsoncxx::from_json( R"xxx({ "public_key" : 1, "_id" : 1 })xxx" ));
+      //       // pub_keys indexes
+      //       auto pub_keys = mongo_conn[db_name][pub_keys_col];
+      //       pub_keys.create_index( bsoncxx::from_json( R"xxx({ "account" : 1, "permission" : 1, "_id" : 1 })xxx" ));
+      //       pub_keys.create_index( bsoncxx::from_json( R"xxx({ "public_key" : 1, "_id" : 1 })xxx" ));
 
-            // account_controls indexes
-            auto account_controls = mongo_conn[db_name][account_controls_col];
-            account_controls.create_index(
-                  bsoncxx::from_json( R"xxx({ "controlled_account" : 1, "controlled_permission" : 1, "_id" : 1 })xxx" ));
-            account_controls.create_index( bsoncxx::from_json( R"xxx({ "controlling_account" : 1, "_id" : 1 })xxx" ));
+      //       // account_controls indexes
+      //       auto account_controls = mongo_conn[db_name][account_controls_col];
+      //       account_controls.create_index(
+      //             bsoncxx::from_json( R"xxx({ "controlled_account" : 1, "controlled_permission" : 1, "_id" : 1 })xxx" ));
+      //       account_controls.create_index( bsoncxx::from_json( R"xxx({ "controlling_account" : 1, "_id" : 1 })xxx" ));
 
-         } catch (...) {
-            handle_mongo_exception( "create indexes", __LINE__ );
-         }
-      }
+      //    } catch (...) {
+      //       handle_mongo_exception( "create indexes", __LINE__ );
+      //    }
+      //}
 
-      if( expire_after_seconds > 0 ) {
-         try {
-            mongocxx::collection block_states = mongo_conn[db_name][block_states_col];
-            create_expiration_index( block_states, expire_after_seconds );
-            mongocxx::collection blocks = mongo_conn[db_name][blocks_col];
-            create_expiration_index( blocks, expire_after_seconds );
-            mongocxx::collection trans = mongo_conn[db_name][trans_col];
-            create_expiration_index( trans, expire_after_seconds );
-            mongocxx::collection trans_traces = mongo_conn[db_name][trans_traces_col];
-            create_expiration_index( trans_traces, expire_after_seconds );
-            mongocxx::collection action_traces = mongo_conn[db_name][action_traces_col];
-            create_expiration_index( action_traces, expire_after_seconds );
-         } catch(...) {
-            handle_mongo_exception( "create expiration indexes", __LINE__ );
-         }
-      }
+      // if( expire_after_seconds > 0 ) {
+      //    try {
+      //       // mongocxx::collection block_states = mongo_conn[db_name][block_states_col];
+      //       // create_expiration_index( block_states, expire_after_seconds );
+      //       // mongocxx::collection blocks = mongo_conn[db_name][blocks_col];
+      //       // create_expiration_index( blocks, expire_after_seconds );
+      //       // mongocxx::collection trans = mongo_conn[db_name][trans_col];
+      //       // create_expiration_index( trans, expire_after_seconds );
+      //       // mongocxx::collection trans_traces = mongo_conn[db_name][trans_traces_col];
+      //       // create_expiration_index( trans_traces, expire_after_seconds );
+      //       // mongocxx::collection action_traces = mongo_conn[db_name][action_traces_col];
+      //       // create_expiration_index( action_traces, expire_after_seconds );
+      //    } catch(...) {
+      //       handle_mongo_exception( "create expiration indexes", __LINE__ );
+      //    }
+      //}
    } catch (...) {
       handle_mongo_exception( "mongo init", __LINE__ );
    }
