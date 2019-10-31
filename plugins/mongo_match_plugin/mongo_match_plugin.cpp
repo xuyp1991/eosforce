@@ -378,7 +378,7 @@ void mongo_match_plugin_impl::handledeal(const match::recorddeal &deal_data) {
    }
    modifyorder(scope_quote,order_quote,coin_quote,coin_base);
 }
-//没有判断base_coin,只能根据scope和2的关系
+
 void mongo_match_plugin_impl::modifyorder(const uint64_t &scope,const uint64_t &order_id,const asset &base,const asset &quote) {
    using bsoncxx::builder::basic::make_document;
    using bsoncxx::builder::basic::kvp;
@@ -397,7 +397,6 @@ void mongo_match_plugin_impl::modifyorder(const uint64_t &scope,const uint64_t &
    undone_base_coin -= base;
    undone_quote_coin -= quote;
 
-   ilog("xuyapeng add test ${base}--${quote}--${undone_base}--${undone_quote}",("base",base)("quote",quote)("undone_base",undone_base_coin)("undone_quote",undone_quote_coin));
    try {
       auto order_doc = bsoncxx::builder::basic::document{};
       order_doc.append( kvp( "order.undone_base_coin", undone_base_coin.to_string() ) );
@@ -501,7 +500,6 @@ void mongo_match_plugin_impl::cancelorder(const match::cancelorder &cancel_order
 
 void mongo_match_plugin_impl::_process_applied_transaction( const chain::transaction_trace_ptr& t ) {
    if( !start_block_reached ) return;
-   //todo here
    match::order match_order;
    for (auto &act_tract: t->action_traces) {
       if (act_tract.act.account == N(sys.match)) {
@@ -514,18 +512,15 @@ void mongo_match_plugin_impl::_process_applied_transaction( const chain::transac
             match_order.set_match_value(match_temp);
             if ( !match_order.isempty() ) {
                handleorder(match_order);
-               ilog("xuyapeng add for test match_order -- ${data}",("data",match_order));
             }
          }
          else if ( act_tract.act.name == N(recorddeal) ) {
             auto recorddeal_temp = act_tract.act.data_as<match::recorddeal>();
             handledeal(recorddeal_temp);
-            ilog("xuyapeng add for test recorddeal -- ${data}",("data",recorddeal_temp));
          }
          else if ( act_tract.act.name == N(cancelorder) ) {
             auto cancelorder_temp = act_tract.act.data_as<match::cancelorder>();
             cancelorder(cancelorder_temp);
-            ilog("xuyapeng add for test cancelorder -- ${data}",("data",cancelorder_temp));
          }
       }
    }
