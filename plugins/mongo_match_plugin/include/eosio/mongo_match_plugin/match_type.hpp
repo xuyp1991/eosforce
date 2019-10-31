@@ -154,17 +154,23 @@ struct order{
    }
 };
 
-struct order_oid {
-   uint64_t scope;
-   uint64_t order_id;
-   string oid;
+struct cancelorder {
+   uint64_t orderscope;
+   uint64_t orderid;
+
+   static account_name get_account() {
+      return match_account_name;
+   }
+
+   static action_name get_name() {
+      return N(cancelorder);
+   }
 
    fc::variant to_variant() const
    {
       chain::mutable_variant_object o;
-              o( "scope",              scope                   )
-               ( "order_id",           order_id                )
-               ( "oid",                oid                     );
+              o( "orderscope",               orderscope                   )
+               ( "orderid",                  orderid                );
 
       return o;
    }
@@ -178,7 +184,7 @@ FC_REFLECT( eosio::match::match                           , (scope_base)(base_id
 FC_REFLECT( eosio::match::order_deal_info                 , (order_scope)(order_id)(exc_acc)(trader) )
 FC_REFLECT( eosio::match::recorddeal_param                , (deal_scope)(deal_base)(deal_quote)(base)(quote)(current_block)(exc_acc) )
 FC_REFLECT( eosio::match::recorddeal                      , (params) )
-FC_REFLECT( eosio::match::order_oid                       , (scope)(order_id)(oid) )
+FC_REFLECT( eosio::match::cancelorder                    , (orderscope)(orderid) )
 FC_REFLECT( eosio::match::order                           , (scope)(order_id)(traders)(base_coin)(quote_coin)(undone_base_coin)(undone_quote_coin)(trade_pair_name)(exc_acc) )
 
 

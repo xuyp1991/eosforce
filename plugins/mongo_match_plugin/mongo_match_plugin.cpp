@@ -57,43 +57,24 @@ public:
    mongo_match_plugin_impl();
    ~mongo_match_plugin_impl();
 
-   fc::optional<boost::signals2::scoped_connection> accepted_block_connection;
-   fc::optional<boost::signals2::scoped_connection> irreversible_block_connection;
-   fc::optional<boost::signals2::scoped_connection> accepted_transaction_connection;
    fc::optional<boost::signals2::scoped_connection> applied_transaction_connection;
 
    void consume_blocks();
 
-   void accepted_block( const chain::block_state_ptr& );
-   void applied_irreversible_block(const chain::block_state_ptr&);
-   void accepted_transaction(const chain::transaction_metadata_ptr&);
    void applied_transaction(const chain::transaction_trace_ptr&);
-   void process_accepted_transaction(const chain::transaction_metadata_ptr&);
-   void _process_accepted_transaction(const chain::transaction_metadata_ptr&);
    void process_applied_transaction(const chain::transaction_trace_ptr&);
    void _process_applied_transaction(const chain::transaction_trace_ptr&);
-   void process_accepted_block( const chain::block_state_ptr& );
-   void _process_accepted_block( const chain::block_state_ptr& );
-   void process_irreversible_block(const chain::block_state_ptr&);
-   void _process_irreversible_block(const chain::block_state_ptr&);
 
    void handleorder(const match::order &order_data);
    void handledeal(const match::recorddeal &deal_data);
    void recordonedeal(const match::recorddeal_param &deal_data);
    void modifyorder(const uint64_t &scope,const uint64_t &order_id,const asset &base,const asset &quote);
+   void cancelorder(const match::cancelorder &cancel_order);
 
-   optional<abi_serializer> get_abi_serializer( account_name n );
-   template<typename T> fc::variant to_variant_with_abi( const T& obj );
-
-   void purge_abi_cache();
-
-   void insert_default_abi();
    bool b_insert_default_abi = false;
-   void insert_one_abi(const account_name &account,const bfs::path &abipath);
 
    void init();
    void wipe_database();
-   void create_expiration_index(mongocxx::collection& collection, uint32_t expire_after_seconds);
 
    template<typename Queue, typename Entry> void queue(Queue& queue, const Entry& e);
 
@@ -122,40 +103,17 @@ public:
 
    size_t max_queue_size = 0;
    int queue_sleep_time = 0;
-   size_t abi_cache_size = 0;
-   std::deque<chain::transaction_metadata_ptr> transaction_metadata_queue;
-   std::deque<chain::transaction_metadata_ptr> transaction_metadata_process_queue;
+
    std::deque<chain::transaction_trace_ptr> transaction_trace_queue;
    std::deque<chain::transaction_trace_ptr> transaction_trace_process_queue;
-   std::deque<chain::block_state_ptr> block_state_queue;
-   std::deque<chain::block_state_ptr> block_state_process_queue;
-   std::deque<chain::block_state_ptr> irreversible_block_state_queue;
-   std::deque<chain::block_state_ptr> irreversible_block_state_process_queue;
+
    std::mutex mtx;
    std::condition_variable condition;
    std::thread consume_thread;
    std::atomic_bool done{false};
    std::atomic_bool startup{true};
    fc::optional<chain::chain_id_type> chain_id;
-   fc::microseconds abi_serializer_max_time;
-
-   struct by_account;
-   struct by_last_access;
-
-   struct abi_cache {
-      account_name                     account;
-      fc::time_point                   last_accessed;
-      fc::optional<abi_serializer>     serializer;
-   };
-
-   typedef boost::multi_index_container<abi_cache,
-         indexed_by<
-               ordered_unique< tag<by_account>,  member<abi_cache,account_name,&abi_cache::account> >,
-               ordered_non_unique< tag<by_last_access>,  member<abi_cache,fc::time_point,&abi_cache::last_accessed> >
-         >
-   > abi_cache_index_t;
-
-   abi_cache_index_t abi_cache_index;
+   //fc::microseconds abi_serializer_max_time;
 
    static const action_name openorder;
    static const action_name match;
@@ -188,20 +146,6 @@ void mongo_match_plugin_impl::queue( Queue& queue, const Entry& e ) {
    queue.emplace_back( e );
    lock.unlock();
    condition.notify_one();
-}
-
-void mongo_match_plugin_impl::accepted_transaction( const chain::transaction_metadata_ptr& t ) {
-   try {
-      if( store_transactions ) {
-         queue( transaction_metadata_queue, t );
-      }
-   } catch (fc::exception& e) {
-      elog("FC Exception while accepted_transaction ${e}", ("e", e.to_string()));
-   } catch (std::exception& e) {
-      elog("STD Exception while accepted_transaction ${e}", ("e", e.what()));
-   } catch (...) {
-      elog("Unknown exception while accepted_transaction");
-   }
 }
 
 void mongo_match_plugin_impl::applied_transaction( const chain::transaction_trace_ptr& t ) {
@@ -239,39 +183,6 @@ void mongo_match_plugin_impl::applied_transaction( const chain::transaction_trac
    }
 }
 
-void mongo_match_plugin_impl::applied_irreversible_block( const chain::block_state_ptr& bs ) {
-   try {
-      if( store_blocks || store_block_states || store_transactions ) {
-         queue( irreversible_block_state_queue, bs );
-      }
-   } catch (fc::exception& e) {
-      elog("FC Exception while applied_irreversible_block ${e}", ("e", e.to_string()));
-   } catch (std::exception& e) {
-      elog("STD Exception while applied_irreversible_block ${e}", ("e", e.what()));
-   } catch (...) {
-      elog("Unknown exception while applied_irreversible_block");
-   }
-}
-
-void mongo_match_plugin_impl::accepted_block( const chain::block_state_ptr& bs ) {
-   try {
-      if( !start_block_reached ) {
-         if( bs->block_num >= start_block_num ) {
-            start_block_reached = true;
-         }
-      }
-      if( store_blocks || store_block_states ) {
-         queue( block_state_queue, bs );
-      }
-   } catch (fc::exception& e) {
-      elog("FC Exception while accepted_block ${e}", ("e", e.to_string()));
-   } catch (std::exception& e) {
-      elog("STD Exception while accepted_block ${e}", ("e", e.what()));
-   } catch (...) {
-      elog("Unknown exception while accepted_block");
-   }
-}
-
 void mongo_match_plugin_impl::consume_blocks() {
    try {
       auto mongo_client = mongo_pool->acquire();
@@ -283,40 +194,22 @@ void mongo_match_plugin_impl::consume_blocks() {
      // insert_default_abi();
       while (true) {
          std::unique_lock<std::mutex> lock(mtx);
-         while ( transaction_metadata_queue.empty() &&
+          while ( 
                  transaction_trace_queue.empty() &&
-                 block_state_queue.empty() &&
-                 irreversible_block_state_queue.empty() &&
                  !done ) {
             condition.wait(lock);
          }
 
-         // capture for processing
-         size_t transaction_metadata_size = transaction_metadata_queue.size();
-         if (transaction_metadata_size > 0) {
-            transaction_metadata_process_queue = move(transaction_metadata_queue);
-            transaction_metadata_queue.clear();
-         }
          size_t transaction_trace_size = transaction_trace_queue.size();
          if (transaction_trace_size > 0) {
             transaction_trace_process_queue = move(transaction_trace_queue);
             transaction_trace_queue.clear();
          }
-         size_t block_state_size = block_state_queue.size();
-         if (block_state_size > 0) {
-            block_state_process_queue = move(block_state_queue);
-            block_state_queue.clear();
-         }
-         size_t irreversible_block_size = irreversible_block_state_queue.size();
-         if (irreversible_block_size > 0) {
-            irreversible_block_state_process_queue = move(irreversible_block_state_queue);
-            irreversible_block_state_queue.clear();
-         }
 
          lock.unlock();
 
          if (done) {
-            ilog("draining queue, size: ${q}", ("q", transaction_metadata_size + transaction_trace_size + block_state_size + irreversible_block_size));
+            ilog("draining queue, size: ${q}", ("q", /*transaction_metadata_size + */ transaction_trace_size /*+ block_state_size + irreversible_block_size*/));
          }
 
          // process transactions
@@ -332,48 +225,8 @@ void mongo_match_plugin_impl::consume_blocks() {
          if( time > fc::microseconds(500000) ) // reduce logging, .5 secs
             ilog( "process_applied_transaction,  time per: ${p}, size: ${s}, time: ${t}", ("s", size)("t", time)("p", per) );
 
-         start_time = fc::time_point::now();
-         size = transaction_metadata_process_queue.size();
-         while (!transaction_metadata_process_queue.empty()) {
-            const auto& t = transaction_metadata_process_queue.front();
-            process_accepted_transaction(t);
-            transaction_metadata_process_queue.pop_front();
-         }
-         time = fc::time_point::now() - start_time;
-         per = size > 0 ? time.count()/size : 0;
-         if( time > fc::microseconds(500000) ) // reduce logging, .5 secs
-            ilog( "process_accepted_transaction, time per: ${p}, size: ${s}, time: ${t}", ("s", size)( "t", time )( "p", per ));
-
-         // process blocks
-         start_time = fc::time_point::now();
-         size = block_state_process_queue.size();
-         while (!block_state_process_queue.empty()) {
-            const auto& bs = block_state_process_queue.front();
-            process_accepted_block( bs );
-            block_state_process_queue.pop_front();
-         }
-         time = fc::time_point::now() - start_time;
-         per = size > 0 ? time.count()/size : 0;
-         if( time > fc::microseconds(500000) ) // reduce logging, .5 secs
-            ilog( "process_accepted_block,       time per: ${p}, size: ${s}, time: ${t}", ("s", size)("t", time)("p", per) );
-
-         // process irreversible blocks
-         start_time = fc::time_point::now();
-         size = irreversible_block_state_process_queue.size();
-         while (!irreversible_block_state_process_queue.empty()) {
-            const auto& bs = irreversible_block_state_process_queue.front();
-            process_irreversible_block(bs);
-            irreversible_block_state_process_queue.pop_front();
-         }
-         time = fc::time_point::now() - start_time;
-         per = size > 0 ? time.count()/size : 0;
-         if( time > fc::microseconds(500000) ) // reduce logging, .5 secs
-            ilog( "process_irreversible_block,   time per: ${p}, size: ${s}, time: ${t}", ("s", size)("t", time)("p", per) );
-
-         if( transaction_metadata_size == 0 &&
+         if( 
              transaction_trace_size == 0 &&
-             block_state_size == 0 &&
-             irreversible_block_size == 0 &&
              done ) {
             break;
          }
@@ -442,57 +295,7 @@ bsoncxx::oid make_custom_oid() {
 
 } // anonymous namespace
 
-void mongo_match_plugin_impl::purge_abi_cache() {
-   if( abi_cache_index.size() < abi_cache_size ) return;
 
-   // remove the oldest (smallest) last accessed
-   auto& idx = abi_cache_index.get<by_last_access>();
-   auto itr = idx.begin();
-   if( itr != idx.end() ) {
-      idx.erase( itr );
-   }
-}
-
-optional<abi_serializer> mongo_match_plugin_impl::get_abi_serializer( account_name n ) {
-   if( n.good()) {
-      try {
-
-            auto itr = abi_cache_index.find( n );
-            if( itr != abi_cache_index.end() ) {
-               abi_cache_index.modify( itr, []( auto& entry ) {
-               entry.last_accessed = fc::time_point::now();
-               });
-
-               return itr->serializer;
-            }
-
-      } FC_CAPTURE_AND_LOG((n))
-   }
-   return optional<abi_serializer>();
-}
-
-template<typename T>
-fc::variant mongo_match_plugin_impl::to_variant_with_abi( const T& obj ) {
-   fc::variant pretty_output;
-   abi_serializer::to_variant( obj, pretty_output,
-                               [&]( account_name n ) { return get_abi_serializer( n ); },
-                               abi_serializer_max_time );
-   return pretty_output;
-}
-
-void mongo_match_plugin_impl::process_accepted_transaction( const chain::transaction_metadata_ptr& t ) {
-   try {
-      if( start_block_reached ) {
-         _process_accepted_transaction( t );
-      }
-   } catch (fc::exception& e) {
-      elog("FC Exception while processing accepted transaction metadata: ${e}", ("e", e.to_detail_string()));
-   } catch (std::exception& e) {
-      elog("STD Exception while processing accepted tranasction metadata: ${e}", ("e", e.what()));
-   } catch (...) {
-      elog("Unknown exception while processing accepted transaction metadata");
-   }
-}
 
 void mongo_match_plugin_impl::process_applied_transaction( const chain::transaction_trace_ptr& t ) {
    try {
@@ -505,43 +308,6 @@ void mongo_match_plugin_impl::process_applied_transaction( const chain::transact
    } catch (...) {
       elog("Unknown exception while processing applied transaction trace");
    }
-}
-
-void mongo_match_plugin_impl::process_irreversible_block(const chain::block_state_ptr& bs) {
-  try {
-     if( start_block_reached ) {
-        _process_irreversible_block( bs );
-     }
-  } catch (fc::exception& e) {
-     elog("FC Exception while processing irreversible block: ${e}", ("e", e.to_detail_string()));
-  } catch (std::exception& e) {
-     elog("STD Exception while processing irreversible block: ${e}", ("e", e.what()));
-  } catch (...) {
-     elog("Unknown exception while processing irreversible block");
-  }
-}
-
-void mongo_match_plugin_impl::process_accepted_block( const chain::block_state_ptr& bs ) {
-   try {
-      if( start_block_reached ) {
-         _process_accepted_block( bs );
-      }
-   } catch (fc::exception& e) {
-      elog("FC Exception while processing accepted block trace ${e}", ("e", e.to_string()));
-   } catch (std::exception& e) {
-      elog("STD Exception while processing accepted block trace ${e}", ("e", e.what()));
-   } catch (...) {
-      elog("Unknown exception while processing accepted block trace");
-   }
-}
-
-void mongo_match_plugin_impl::_process_accepted_transaction( const chain::transaction_metadata_ptr& t ) {
-   using namespace bsoncxx::types;
-   using bsoncxx::builder::basic::kvp;
-   using bsoncxx::builder::basic::make_document;
-   using bsoncxx::builder::basic::make_array;
-   namespace bbb = bsoncxx::builder::basic;
-   //todo here
 }
 
 void mongo_match_plugin_impl::handleorder(const match::order &order_data) {
@@ -703,8 +469,38 @@ void mongo_match_plugin_impl::recordonedeal(const match::recorddeal_param &deal_
    }
 }
 
+void mongo_match_plugin_impl::cancelorder(const match::cancelorder &cancel_order) {
+   using bsoncxx::builder::basic::make_document;
+   using bsoncxx::builder::basic::kvp;
+
+   auto order_info = _orders.find_one( make_document( kvp( "scope_orderid", bsoncxx::decimal128{cancel_order.orderscope,cancel_order.orderid})));
+   if (!order_info) {
+      FC_ASSERT( false, "no order find");
+      return ;
+   }
+
+   try {
+      auto order_doc = bsoncxx::builder::basic::document{};
+      order_doc.append( kvp( "order.order_status", match::order_status::Cancel ) );
+      auto update_from = make_document(
+            kvp( "$set", order_doc.view() ));
+
+      mongocxx::options::update update_opts{};
+      update_opts.upsert( true );
+      
+      if( !_orders.update_one(  make_document( kvp( "scope_orderid", bsoncxx::decimal128{cancel_order.orderscope,cancel_order.orderid})),
+                              make_document( kvp( "$set", order_doc.view() ) ), update_opts ) ){
+         EOS_ASSERT( false, chain::mongo_db_insert_fail, "Failed to cancel order ${scope} ${id}", ("scope",cancel_order.orderscope)("id", cancel_order.orderid) );
+      }
+   } catch( ... ) {
+      handle_mongo_exception( "trans insert", __LINE__ );
+   }
+}
+
+
 
 void mongo_match_plugin_impl::_process_applied_transaction( const chain::transaction_trace_ptr& t ) {
+   if( !start_block_reached ) return;
    //todo here
    match::order match_order;
    for (auto &act_tract: t->action_traces) {
@@ -726,17 +522,13 @@ void mongo_match_plugin_impl::_process_applied_transaction( const chain::transac
             handledeal(recorddeal_temp);
             ilog("xuyapeng add for test recorddeal -- ${data}",("data",recorddeal_temp));
          }
+         else if ( act_tract.act.name == N(cancelorder) ) {
+            auto cancelorder_temp = act_tract.act.data_as<match::cancelorder>();
+            cancelorder(cancelorder_temp);
+            ilog("xuyapeng add for test cancelorder -- ${data}",("data",cancelorder_temp));
+         }
       }
    }
-
-}
-
-void mongo_match_plugin_impl::_process_accepted_block( const chain::block_state_ptr& bs ) {
-
-}
-
-void mongo_match_plugin_impl::_process_irreversible_block(const chain::block_state_ptr& bs)
-{
 
 }
 
@@ -772,73 +564,6 @@ void mongo_match_plugin_impl::wipe_database() {
    orders.drop();
    deals.drop();
    ilog("done wipe_database");
-}
-
-chain::private_key_type get_private_key( name keyname, string role ) {
-   return chain::private_key_type::regenerate<fc::ecc::private_key_shim>(fc::sha256::hash(string(keyname)+role));
-}
-
-chain::public_key_type  get_public_key( name keyname, string role ) {
-   return get_private_key( keyname, role ).get_public_key();
-}
-
-void mongo_match_plugin_impl::insert_one_abi(const account_name &account,const bfs::path &abipath) {
-   FC_ASSERT( fc::exists( abipath ), "no abi file found ");
-   auto abijson = fc::json::from_file(abipath).as<abi_def>();
-   auto abi = fc::raw::pack(abijson);
-   abi_def abi_def = fc::raw::unpack<chain::abi_def>( abi );
-   
-   abi_cache entry;
-   entry.account = account;
-   entry.last_accessed = fc::time_point::now();
-   abi_serializer abis;
-   abis.set_abi( abi_def, abi_serializer_max_time );
-   entry.serializer.emplace( std::move( abis ) );
-   abi_cache_index.insert( entry );
-}
-
-
-void mongo_match_plugin_impl::insert_default_abi()
-{
-      purge_abi_cache(); // make room if necessary
-      insert_one_abi(N(eosio.token),app().config_dir() / "eosio.token/eosio.token" += ".abi");
-      insert_one_abi(N(eosio),app().config_dir() / "eosio.system/eosio.system" += ".abi");
-      insert_one_abi(N(sys.match),app().config_dir() / "sys.match/sys.match" += ".abi");
-
-      b_insert_default_abi = true;
-}
-
-void mongo_match_plugin_impl::create_expiration_index(mongocxx::collection& collection, uint32_t expire_after_seconds) {
-   using bsoncxx::builder::basic::make_document;
-   using bsoncxx::builder::basic::kvp;
-
-   auto indexes = collection.indexes();
-   for( auto& index : indexes.list()) {
-      auto key = index["key"];
-      if( !key ) {
-         continue;
-      }
-      auto field = key["createdAt"];
-      if( !field ) {
-         continue;
-      }
-
-      auto ttl = index["expireAfterSeconds"];
-      if( ttl && ttl.get_int32() == expire_after_seconds ) {
-         return;
-      } else {
-         auto name = index["name"].get_utf8();
-         ilog( "mongo db drop ttl index for collection ${collection}", ( "collection", collection.name().to_string()));
-         indexes.drop_one( name.value );
-         break;
-      }
-   }
-
-   mongocxx::options::index index_options{};
-   index_options.expire_after( std::chrono::seconds( expire_after_seconds ));
-   index_options.background( true );
-   ilog( "mongo db create ttl index for collection ${collection}", ( "collection", collection.name().to_string()));
-   collection.create_index( make_document( kvp( "createdAt", 1 )), index_options );
 }
 
 void mongo_match_plugin_impl::init() {
@@ -891,100 +616,55 @@ mongo_match_plugin::~mongo_match_plugin()
 void mongo_match_plugin::set_program_options(options_description& cli, options_description& cfg)
 {
    cfg.add_options()
-         ("mongodb-queue-size,q", bpo::value<uint32_t>()->default_value(1024),
+         ("match_mongodb-queue-size,q", bpo::value<uint32_t>()->default_value(1024),
          "The target queue size between nodeos and MongoDB plugin thread.")
-         ("mongodb-abi-cache-size", bpo::value<uint32_t>()->default_value(2048),
-          "The maximum size of the abi cache for serializing data.")
-         ("mongodb-wipe", bpo::bool_switch()->default_value(false),
+         ("match_mongodb-wipe", bpo::bool_switch()->default_value(false),
          "Required with --replay-blockchain, --hard-replay-blockchain, or --delete-all-blocks to wipe mongo db."
          "This option required to prevent accidental wipe of mongo db.")
-         ("mongodb-block-start", bpo::value<uint32_t>()->default_value(0),
+         ("match_mongodb-block-start", bpo::value<uint32_t>()->default_value(0),
          "If specified then only abi data pushed to mongodb until specified block is reached.")
-         ("mongodb-uri,m", bpo::value<std::string>(),
+         ("match_mongodb-uri,m", bpo::value<std::string>(),
          "MongoDB URI connection string, see: https://docs.mongodb.com/master/reference/connection-string/."
-               " If not specified then plugin is disabled. Default database 'EOS' is used if not specified in URI."
-               " Example: mongodb://127.0.0.1:27017/EOS")
-         ("mongodb-update-via-block-num", bpo::value<bool>()->default_value(false),
-          "Update blocks/block_state with latest via block number so that duplicates are overwritten.")
-         ("mongodb-store-blocks", bpo::value<bool>()->default_value(true),
-          "Enables storing blocks in mongodb.")
-         ("mongodb-store-block-states", bpo::value<bool>()->default_value(true),
-          "Enables storing block state in mongodb.")
-         ("mongodb-store-transactions", bpo::value<bool>()->default_value(true),
-          "Enables storing transactions in mongodb.")
-         ("mongodb-store-transaction-traces", bpo::value<bool>()->default_value(true),
-          "Enables storing transaction traces in mongodb.")
-         ("mongodb-store-action-traces", bpo::value<bool>()->default_value(true),
-          "Enables storing action traces in mongodb.")
-         ("mongodb-expire-after-seconds", bpo::value<uint32_t>()->default_value(0),
-          "Enables expiring data in mongodb after a specified number of seconds.")
+               " If not specified then plugin is disabled. Default database 'match' is used if not specified in URI."
+               " Example: mongodb://127.0.0.1:27017/match")
          ;
 }
 
 void mongo_match_plugin::plugin_initialize(const variables_map& options)
 {
    try {
-      if( options.count( "mongodb-uri" )) {
+      if( options.count( "match_mongodb-uri" )) {
          ilog( "initializing mongo_match_plugin" );
          my->configured = true;
 
          if( options.at( "replay-blockchain" ).as<bool>() || options.at( "hard-replay-blockchain" ).as<bool>() || options.at( "delete-all-blocks" ).as<bool>() ) {
-            if( options.at( "mongodb-wipe" ).as<bool>()) {
+            if( options.at( "match_mongodb-wipe" ).as<bool>()) {
                ilog( "Wiping mongo database on startup" );
                my->wipe_database_on_startup = true;
-            } else if( options.count( "mongodb-block-start" ) == 0 ) {
+            } else if( options.count( "match_mongodb-block-start" ) == 0 ) {
                EOS_ASSERT( false, chain::plugin_config_exception, "--mongodb-wipe required with --replay-blockchain, --hard-replay-blockchain, or --delete-all-blocks"
                                  " --mongodb-wipe will remove all EOS collections from mongodb." );
             }
          }
 
-         if( options.count( "abi-serializer-max-time-ms") == 0 ) {
-            EOS_ASSERT(false, chain::plugin_config_exception, "--abi-serializer-max-time-ms required as default value not appropriate for parsing full blocks");
+         if( options.count( "match_mongodb-queue-size" )) {
+            my->max_queue_size = options.at( "match_mongodb-queue-size" ).as<uint32_t>();
          }
-         my->abi_serializer_max_time = app().get_plugin<chain_plugin>().get_abi_serializer_max_time();
 
-         if( options.count( "mongodb-queue-size" )) {
-            my->max_queue_size = options.at( "mongodb-queue-size" ).as<uint32_t>();
-         }
-         if( options.count( "mongodb-abi-cache-size" )) {
-            my->abi_cache_size = options.at( "mongodb-abi-cache-size" ).as<uint32_t>();
-            EOS_ASSERT( my->abi_cache_size > 0, chain::plugin_config_exception, "mongodb-abi-cache-size > 0 required" );
-         }
-         if( options.count( "mongodb-block-start" )) {
-            my->start_block_num = options.at( "mongodb-block-start" ).as<uint32_t>();
-         }
-         if( options.count( "mongodb-update-via-block-num" )) {
-            my->update_blocks_via_block_num = options.at( "mongodb-update-via-block-num" ).as<bool>();
-         }
-         if( options.count( "mongodb-store-blocks" )) {
-            my->store_blocks = options.at( "mongodb-store-blocks" ).as<bool>();
-         }
-         if( options.count( "mongodb-store-block-states" )) {
-            my->store_block_states = options.at( "mongodb-store-block-states" ).as<bool>();
-         }
-         if( options.count( "mongodb-store-transactions" )) {
-            my->store_transactions = options.at( "mongodb-store-transactions" ).as<bool>();
-         }
-         if( options.count( "mongodb-store-transaction-traces" )) {
-            my->store_transaction_traces = options.at( "mongodb-store-transaction-traces" ).as<bool>();
-         }
-         if( options.count( "mongodb-store-action-traces" )) {
-            my->store_action_traces = options.at( "mongodb-store-action-traces" ).as<bool>();
-         }
-         if( options.count( "mongodb-expire-after-seconds" )) {
-            my->expire_after_seconds = options.at( "mongodb-expire-after-seconds" ).as<uint32_t>();
+         if( options.count( "match_mongodb-block-start" )) {
+            my->start_block_num = options.at( "match_mongodb-block-start" ).as<uint32_t>();
          }
 
          if( my->start_block_num == 0 ) {
             my->start_block_reached = true;
          }
 
-         std::string uri_str = options.at( "mongodb-uri" ).as<std::string>();
+         std::string uri_str = options.at( "match_mongodb-uri" ).as<std::string>();
          ilog( "connecting to ${u}", ("u", uri_str));
          mongocxx::uri uri = mongocxx::uri{uri_str};
          my->db_name = uri.database();
          if( my->db_name.empty())
-            my->db_name = "EOS";
+            my->db_name = "match";
          my->mongo_pool.emplace(uri);
 
          // hook up to signals on controller
@@ -993,17 +673,6 @@ void mongo_match_plugin::plugin_initialize(const variables_map& options)
          auto& chain = chain_plug->chain();
          my->chain_id.emplace( chain.get_chain_id());
 
-         my->accepted_block_connection.emplace( chain.accepted_block.connect( [&]( const chain::block_state_ptr& bs ) {
-            my->accepted_block( bs );
-         } ));
-         my->irreversible_block_connection.emplace(
-               chain.irreversible_block.connect( [&]( const chain::block_state_ptr& bs ) {
-                  my->applied_irreversible_block( bs );
-               } ));
-         my->accepted_transaction_connection.emplace(
-               chain.accepted_transaction.connect( [&]( const chain::transaction_metadata_ptr& t ) {
-                  my->accepted_transaction( t );
-               } ));
          my->applied_transaction_connection.emplace(
                chain.applied_transaction.connect( [&]( std::tuple<const chain::transaction_trace_ptr&, const chain::signed_transaction&> t ) {
                   my->applied_transaction( std::get<0>(t) );
@@ -1014,7 +683,7 @@ void mongo_match_plugin::plugin_initialize(const variables_map& options)
          }
          my->init();
       } else {
-         wlog( "eosio::mongo_match_plugin configured, but no --mongodb-uri specified." );
+         wlog( "eosio::mongo_match_plugin configured, but no --match_mongodb-uri specified." );
          wlog( "mongo_match_plugin disabled." );
       }
    } FC_LOG_AND_RETHROW()
@@ -1026,9 +695,6 @@ void mongo_match_plugin::plugin_startup()
 
 void mongo_match_plugin::plugin_shutdown()
 {
-   my->accepted_block_connection.reset();
-   my->irreversible_block_connection.reset();
-   my->accepted_transaction_connection.reset();
    my->applied_transaction_connection.reset();
 
    my.reset();
