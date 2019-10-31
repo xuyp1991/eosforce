@@ -115,6 +115,7 @@ struct order{
    name trade_pair_name;
    account_name exc_acc;
    uint32_t   order_status;
+   uint64_t   order_price;
 
    void set_open_value( const openorder &a) {
       traders = a.traders;
@@ -130,6 +131,12 @@ struct order{
    void set_match_value( const match &a ) {
       scope = a.scope_base;
       order_id = a.base_id;
+      if (scope & 1) {
+         order_price = base_coin.get_amount() * 1000000 / quote_coin.get_amount();
+      }
+      else {
+         order_price = quote_coin.get_amount() * 1000000 / base_coin.get_amount();
+      }
    }
 
    bool isempty() const {
@@ -148,7 +155,8 @@ struct order{
                ( "undone_quote_coin",  undone_quote_coin         )
                ( "trade_pair_name",    trade_pair_name         )
                ( "exc_acc",            exc_acc                 )
-               ( "order_status",       order_status         );
+               ( "order_status",       order_status            )
+               ( "order_price",       order_price            );
 
       return o;
    }
@@ -185,7 +193,7 @@ FC_REFLECT( eosio::match::order_deal_info                 , (order_scope)(order_
 FC_REFLECT( eosio::match::recorddeal_param                , (deal_scope)(deal_base)(deal_quote)(base)(quote)(current_block)(exc_acc) )
 FC_REFLECT( eosio::match::recorddeal                      , (params) )
 FC_REFLECT( eosio::match::cancelorder                    , (orderscope)(orderid) )
-FC_REFLECT( eosio::match::order                           , (scope)(order_id)(traders)(base_coin)(quote_coin)(undone_base_coin)(undone_quote_coin)(trade_pair_name)(exc_acc) )
+FC_REFLECT( eosio::match::order                           , (scope)(order_id)(traders)(base_coin)(quote_coin)(undone_base_coin)(undone_quote_coin)(trade_pair_name)(exc_acc)(order_status)(order_price) )
 
 
 
