@@ -3,6 +3,7 @@
  *  @copyright defined in eos/LICENSE
  */
 #include <eosio/mongo_match_plugin/mongo_match_plugin.hpp>
+#include <eosio/mongo_match_plugin/match_type.hpp>
 #include <eosio/chain/eosio_contract.hpp>
 #include <eosio/chain/config.hpp>
 #include <eosio/chain/exceptions.hpp>
@@ -26,6 +27,7 @@
 #include <bsoncxx/builder/basic/document.hpp>
 #include <bsoncxx/exception/exception.hpp>
 #include <bsoncxx/json.hpp>
+#include <bsoncxx/decimal128.hpp>
 
 #include <mongocxx/client.hpp>
 #include <mongocxx/instance.hpp>
@@ -75,6 +77,11 @@ public:
    void process_irreversible_block(const chain::block_state_ptr&);
    void _process_irreversible_block(const chain::block_state_ptr&);
 
+   void handleorder(const match::order &order_data);
+   void handledeal(const match::recorddeal &deal_data);
+   void recordonedeal(const match::recorddeal_param &deal_data);
+   void modifyorder(const uint64_t &scope,const uint64_t &order_id,const asset &base,const asset &quote);
+
    optional<abi_serializer> get_abi_serializer( account_name n );
    template<typename T> fc::variant to_variant_with_abi( const T& obj );
 
@@ -111,6 +118,7 @@ public:
 
    // consum thread
    mongocxx::collection _orders;
+   mongocxx::collection _order_ids;
    mongocxx::collection _deals;
 
    size_t max_queue_size = 0;
@@ -155,17 +163,13 @@ public:
    static const action_name recorddeal;
 
    static const std::string orders_col;
+   static const std::string order_ids_col;
    static const std::string deals_col;
+
 };
 
-// const action_name mongo_match_plugin_impl::newaccount = chain::newaccount::get_name();
-// const action_name mongo_match_plugin_impl::setabi = chain::setabi::get_name();
-// const action_name mongo_match_plugin_impl::updateauth = chain::updateauth::get_name();
-// const action_name mongo_match_plugin_impl::deleteauth = chain::deleteauth::get_name();
-// const permission_name mongo_match_plugin_impl::owner = chain::config::owner_name;
-// const permission_name mongo_match_plugin_impl::active = chain::config::active_name;
-
 const std::string mongo_match_plugin_impl::orders_col = "orders";
+const std::string mongo_match_plugin_impl::order_ids_col = "order_ids";
 const std::string mongo_match_plugin_impl::deals_col = "deals";
 
 template<typename Queue, typename Entry>
@@ -277,6 +281,7 @@ void mongo_match_plugin_impl::consume_blocks() {
       auto& mongo_conn = *mongo_client;
 
       _orders = mongo_conn[db_name][orders_col];
+      _order_ids = mongo_conn[db_name][order_ids_col];
       _deals = mongo_conn[db_name][deals_col];
 
      // insert_default_abi();
@@ -388,21 +393,6 @@ void mongo_match_plugin_impl::consume_blocks() {
 }
 
 namespace {
-
-auto find_account( mongocxx::collection& accounts, const account_name& name ) {
-   using bsoncxx::builder::basic::make_document;
-   using bsoncxx::builder::basic::kvp;
-   return accounts.find_one( make_document( kvp( "name", name.to_string())));
-}
-
-auto find_block( mongocxx::collection& blocks, const string& id ) {
-   using bsoncxx::builder::basic::make_document;
-   using bsoncxx::builder::basic::kvp;
-
-   mongocxx::options::find options;
-   options.projection( make_document( kvp( "_id", 1 )) ); // only return _id
-   return blocks.find_one( make_document( kvp( "block_id", id )), options);
-}
 
 void handle_mongo_exception( const std::string& desc, int line_num ) {
    bool shutdown = true;
@@ -555,72 +545,240 @@ void mongo_match_plugin_impl::_process_accepted_transaction( const chain::transa
    using bsoncxx::builder::basic::make_document;
    using bsoncxx::builder::basic::make_array;
    namespace bbb = bsoncxx::builder::basic;
-
+   //todo here
 }
 
-void mongo_match_plugin_impl::_process_applied_transaction( const chain::transaction_trace_ptr& t ) {
+void mongo_match_plugin_impl::handleorder(const match::order &order_data) {
    using namespace bsoncxx::types;
    using bsoncxx::builder::basic::kvp;
+   using bsoncxx::builder::basic::make_document;
 
    auto trans_traces_doc = bsoncxx::builder::basic::document{};
 
    auto now = std::chrono::duration_cast<std::chrono::milliseconds>(
          std::chrono::microseconds{fc::time_point::now().time_since_epoch().count()});
 
+   mongocxx::options::update update_opts{};
+   update_opts.upsert( true );
+
+   auto var_order = order_data.to_variant();
+   auto json = fc::json::to_string(var_order);
+
+   auto block_doc = bsoncxx::builder::basic::document{};
+
+   try {
+      const auto& value = bsoncxx::from_json( json );
+      block_doc.append( kvp( "order", value ) );
+   } catch( bsoncxx::exception& ) {
+      try {
+         json = fc::prune_invalid_utf8( json );
+         const auto& value = bsoncxx::from_json( json );
+         block_doc.append( kvp( "order", value ) );
+         block_doc.append( kvp( "non-utf8-purged", b_bool{true} ) );
+      } catch( bsoncxx::exception& e ) {
+         elog( "Unable to convert block JSON to MongoDB JSON: ${e}", ("e", e.what()) );
+         elog( "  JSON: ${j}", ("j", json) );
+      }
+   }
+
+   block_doc.append( kvp( "createdAt", b_date{now} ) );
+   auto order_oid_info = make_custom_oid();
+
+   try {
+
+      if( !_orders.update_one( make_document( kvp( "order_oid", order_oid_info ) ),
+                               make_document( kvp( "$set", block_doc.view() ) ), update_opts ) ) {
+         EOS_ASSERT( false, chain::mongo_db_insert_fail, "Failed to insert block ${scope},${order_id}", ("scope", order_data.scope)("order_id",order_data.order_id) );
+      }
+
+   } catch( ... ) {
+      handle_mongo_exception( "blocks insert: " + json, __LINE__ );
+   }
+
+   match::order_oid order_oid_temp{order_data.scope,order_data.order_id,order_oid_info.to_string()};
+   auto var_order_oid = order_oid_temp.to_variant();
+   auto json_oid = fc::json::to_string(order_oid_temp);
+
+   auto oid_doc = bsoncxx::builder::basic::document{};
+
+   try {
+      const auto& value = bsoncxx::from_json( json_oid );
+      oid_doc.append( kvp( "order", value ) );
+   } catch( bsoncxx::exception& ) {
+      try {
+         json_oid = fc::prune_invalid_utf8( json_oid );
+         const auto& value = bsoncxx::from_json( json_oid );
+         oid_doc.append( kvp( "order", value ) );
+         oid_doc.append( kvp( "non-utf8-purged", b_bool{true} ) );
+      } catch( bsoncxx::exception& e ) {
+         elog( "Unable to convert block JSON to MongoDB JSON: ${e}", ("e", e.what()) );
+         elog( "  JSON: ${j}", ("j", json) );
+      }
+   }
+
+   oid_doc.append( kvp( "createdAt", b_date{now} ) );
+   try {
+
+      if( !_order_ids.update_one( make_document( kvp( "scope_orderid", bsoncxx::decimal128{order_data.scope,order_data.order_id} ) ) ,
+                               make_document( kvp( "$set", oid_doc.view() ) ), update_opts ) ) {
+         EOS_ASSERT( false, chain::mongo_db_insert_fail, "Failed to insert order oid ${scope},${order_id}", ("scope", order_data.scope)("order_id",order_data.order_id) );
+      }
+
+   } catch( ... ) {
+      handle_mongo_exception( "blocks insert: " + json, __LINE__ );
+   }
 }
 
-void mongo_match_plugin_impl::_process_accepted_block( const chain::block_state_ptr& bs ) {
+void mongo_match_plugin_impl::handledeal(const match::recorddeal &deal_data) {
+   uint64_t scope_quote = eosio::chain::asset::max_amount,order_quote;
+   asset coin_base,coin_quote;
+   for ( auto &deal_info: deal_data.params ) {
+      modifyorder(deal_info.deal_base.order_scope,deal_info.deal_base.order_id,deal_info.base,deal_info.quote);
+      if ( scope_quote != deal_info.deal_quote.order_scope ) {
+         scope_quote = deal_info.deal_quote.order_scope;
+         order_quote = deal_info.deal_quote.order_id;
+         coin_base = deal_info.base;
+         coin_quote = deal_info.quote;
+      }
+      else {
+         coin_base += deal_info.base;
+         coin_quote += deal_info.quote;
+      }
+      recordonedeal(deal_info);
+   }
+   modifyorder(scope_quote,order_quote,coin_quote,coin_base);
+}
+//没有判断base_coin,只能根据scope和2的关系
+void mongo_match_plugin_impl::modifyorder(const uint64_t &scope,const uint64_t &order_id,const asset &base,const asset &quote) {
+   using bsoncxx::builder::basic::make_document;
+   using bsoncxx::builder::basic::kvp;
+   auto order_oid_info = _order_ids.find_one( make_document( kvp( "scope_orderid", bsoncxx::decimal128{scope,order_id})));
+   if (!order_oid_info) {
+      FC_ASSERT( false, "no order id find");
+      return ;
+   }
+
+   auto oid_info = order_oid_info->view()["order_oid"]["oid"].get_utf8().value.to_string();
+   auto order_info = _orders.find_one( make_document( kvp( "order_oid", bsoncxx::oid(oid_info) )));
+   if (!order_oid_info) {
+      FC_ASSERT( false, "no order find");
+      return ;
+   }
+
+   auto undone_base_coin = chain::asset::from_string(order_info->view()["order"]["undone_base_coin"].get_utf8().value.to_string());
+   auto undone_quote_coin = chain::asset::from_string(order_info->view()["order"]["undone_quote_coin"].get_utf8().value.to_string());
+   auto base_coin = chain::asset::from_string(order_info->view()["order"]["base_coin"].get_utf8().value.to_string());
+   auto quote_coin = chain::asset::from_string(order_info->view()["order"]["quote_coin"].get_utf8().value.to_string());
+   
+   undone_base_coin -= base;
+   undone_quote_coin -= quote;
+
+   ilog("xuyapeng add test ${base}--${quote}--${undone_base}--${undone_quote}",("base",base)("quote",quote)("undone_base",undone_base_coin)("undone_quote",undone_quote_coin));
+   try {
+      auto order_doc = bsoncxx::builder::basic::document{};
+      order_doc.append( kvp( "order.undone_base_coin", undone_base_coin.to_string() ) );
+      order_doc.append( kvp( "order.undone_quote_coin", undone_quote_coin.to_string() ) );
+
+      if ( (scope & 1 && undone_quote_coin.get_amount() == 0) || ( !(scope & 1)  && undone_base_coin.get_amount() == 0 )) {
+         order_doc.append( kvp( "order.order_status", match::order_status::Done ) );
+      }
+      auto update_from = make_document(
+            kvp( "$set", order_doc.view() ));
+
+      mongocxx::options::update update_opts{};
+      update_opts.upsert( true );
+      
+      if( !_orders.update_one(  make_document( kvp( "scope_orderid", bsoncxx::decimal128{scope,order_id})),
+                              make_document( kvp( "$set", order_doc.view() ) ), update_opts ) ){
+         EOS_ASSERT( false, chain::mongo_db_insert_fail, "Failed to insert trans ${id}", ("id", order_id) );
+      }
+   } catch( ... ) {
+      handle_mongo_exception( "trans insert", __LINE__ );
+   }
+   
+}
+
+void mongo_match_plugin_impl::recordonedeal(const match::recorddeal_param &deal_data) {
    using namespace bsoncxx::types;
-   using namespace bsoncxx::builder;
    using bsoncxx::builder::basic::kvp;
    using bsoncxx::builder::basic::make_document;
 
-   for( const auto& receipt : bs->block->transactions ) {
-      string trx_id_str;
-      if( receipt.trx.contains<packed_transaction>() ) {
-            const auto& pt = receipt.trx.get<packed_transaction>();
-            // get id via get_raw_transaction() as packed_transaction.id() mutates internal transaction state
-            const auto& raw = pt.get_raw_transaction();
-            const auto& trx = fc::raw::unpack<transaction>( raw );
-            vector<fc::mutable_variant_object> vec_var;
-            for (auto &act: trx.actions)
-            {
-               if( act.account == N(sys.match) ){
-                  ilog("xuyapeng add for test sys.match ----------_process_accepted_block----------");
-               }
-            }
+   auto trans_traces_doc = bsoncxx::builder::basic::document{};
+
+   auto now = std::chrono::duration_cast<std::chrono::milliseconds>(
+         std::chrono::microseconds{fc::time_point::now().time_since_epoch().count()});
+
+   mongocxx::options::update update_opts{};
+   update_opts.upsert( true );
+
+   auto var_deal = deal_data.to_variant();
+   auto json = fc::json::to_string(var_deal);
+
+   auto deal_doc = bsoncxx::builder::basic::document{};
+
+   try {
+      const auto& value = bsoncxx::from_json( json );
+      deal_doc.append( kvp( "deal", value ) );
+   } catch( bsoncxx::exception& ) {
+      try {
+         json = fc::prune_invalid_utf8( json );
+         const auto& value = bsoncxx::from_json( json );
+         deal_doc.append( kvp( "deal", value ) );
+         deal_doc.append( kvp( "non-utf8-purged", b_bool{true} ) );
+      } catch( bsoncxx::exception& e ) {
+         elog( "Unable to convert block JSON to MongoDB JSON: ${e}", ("e", e.what()) );
+         elog( "  JSON: ${j}", ("j", json) );
       }
    }
+
+   deal_doc.append( kvp( "createdAt", b_date{now} ) );
+
+   try {
+
+      if( !_deals.update_one( make_document( kvp( "_id", make_custom_oid() ) ),
+                               make_document( kvp( "$set", deal_doc.view() ) ), update_opts ) ) {
+         EOS_ASSERT( false, chain::mongo_db_insert_fail, "Failed to insert block ${scope}", ("scope", deal_data.deal_scope) );
+      }
+
+   } catch( ... ) {
+      handle_mongo_exception( "blocks insert: " + json, __LINE__ );
+   }
+}
+
+
+void mongo_match_plugin_impl::_process_applied_transaction( const chain::transaction_trace_ptr& t ) {
+   //todo here
+   match::order match_order;
+   for (auto &act_tract: t->action_traces) {
+      if (act_tract.act.account == N(sys.match)) {
+         if ( act_tract.act.name == N(openorder) ) {
+            auto openorder_temp = act_tract.act.data_as<match::openorder>();
+            match_order.set_open_value(openorder_temp);
+         }
+         else if ( act_tract.act.name == N(match) ) {
+            auto match_temp = act_tract.act.data_as<match::match>();
+            match_order.set_match_value(match_temp);
+            if ( !match_order.isempty() ) {
+               handleorder(match_order);
+               ilog("xuyapeng add for test match_order -- ${data}",("data",match_order));
+            }
+         }
+         else if ( act_tract.act.name == N(recorddeal) ) {
+            auto recorddeal_temp = act_tract.act.data_as<match::recorddeal>();
+            handledeal(recorddeal_temp);
+            ilog("xuyapeng add for test recorddeal -- ${data}",("data",recorddeal_temp));
+         }
+      }
+   }
+
+}
+
+void mongo_match_plugin_impl::_process_accepted_block( const chain::block_state_ptr& bs ) {
 
 }
 
 void mongo_match_plugin_impl::_process_irreversible_block(const chain::block_state_ptr& bs)
 {
-   using namespace bsoncxx::types;
-   using namespace bsoncxx::builder;
-   using bsoncxx::builder::basic::make_document;
-   using bsoncxx::builder::basic::kvp;
-
-
-   const auto block_id = bs->block->id();
-   const auto block_id_str = block_id.str();
-
-   for( const auto& receipt : bs->block->transactions ) {
-      string trx_id_str;
-      if( receipt.trx.contains<packed_transaction>() ) {
-            const auto& pt = receipt.trx.get<packed_transaction>();
-            // get id via get_raw_transaction() as packed_transaction.id() mutates internal transaction state
-            const auto& raw = pt.get_raw_transaction();
-            const auto& trx = fc::raw::unpack<transaction>( raw );
-            vector<fc::mutable_variant_object> vec_var;
-            for (auto &act: trx.actions)
-            {
-               if( act.account == N(sys.match) ){
-                  ilog("xuyapeng add for test sys.match -----------_process_irreversible_block---------");
-               }
-            }
-      }
-   }
 
 }
 
@@ -739,12 +897,13 @@ void mongo_match_plugin_impl::init() {
 
       auto orders = mongo_conn[db_name][orders_col];
       if( orders.count( make_document()) == 0 ) { 
-         orders.create_index( bsoncxx::from_json( R"xxx({ "scope" : 1, "_id" : 1 })xxx" ));
-         orders.create_index( bsoncxx::from_json( R"xxx({ "order_id" : 1, "_id" : 1 })xxx" ));
+         orders.create_index( bsoncxx::from_json( R"xxx({ "order_oid" : 1, "_id" : 1 })xxx" ));
 
          auto deals = mongo_conn[db_name][deals_col];
          deals.create_index( bsoncxx::from_json( R"xxx({ "scope" : 1, "_id" : 1 })xxx" ));
-         deals.create_index( bsoncxx::from_json( R"xxx({ "order_id" : 1, "_id" : 1 })xxx" ));
+
+         auto order_ids = mongo_conn[db_name][order_ids_col];
+         order_ids.create_index( bsoncxx::from_json( R"xxx({ "scope_orderid" : 1, "_id" : 1 })xxx" ));
       }
       //todo
    } catch (...) {
