@@ -118,7 +118,6 @@ public:
 
    // consum thread
    mongocxx::collection _orders;
-   mongocxx::collection _order_ids;
    mongocxx::collection _deals;
 
    size_t max_queue_size = 0;
@@ -163,13 +162,11 @@ public:
    static const action_name recorddeal;
 
    static const std::string orders_col;
-   static const std::string order_ids_col;
    static const std::string deals_col;
 
 };
 
 const std::string mongo_match_plugin_impl::orders_col = "orders";
-const std::string mongo_match_plugin_impl::order_ids_col = "order_ids";
 const std::string mongo_match_plugin_impl::deals_col = "deals";
 
 template<typename Queue, typename Entry>
@@ -281,7 +278,6 @@ void mongo_match_plugin_impl::consume_blocks() {
       auto& mongo_conn = *mongo_client;
 
       _orders = mongo_conn[db_name][orders_col];
-      _order_ids = mongo_conn[db_name][order_ids_col];
       _deals = mongo_conn[db_name][deals_col];
 
      // insert_default_abi();
@@ -586,7 +582,7 @@ void mongo_match_plugin_impl::handleorder(const match::order &order_data) {
 
    try {
 
-      if( !_orders.update_one( make_document( kvp( "order_oid", order_oid_info ) ),
+      if( !_orders.update_one( make_document( kvp( "scope_orderid", bsoncxx::decimal128{order_data.scope,order_data.order_id} ) ),
                                make_document( kvp( "$set", block_doc.view() ) ), update_opts ) ) {
          EOS_ASSERT( false, chain::mongo_db_insert_fail, "Failed to insert block ${scope},${order_id}", ("scope", order_data.scope)("order_id",order_data.order_id) );
       }
@@ -595,38 +591,6 @@ void mongo_match_plugin_impl::handleorder(const match::order &order_data) {
       handle_mongo_exception( "blocks insert: " + json, __LINE__ );
    }
 
-   match::order_oid order_oid_temp{order_data.scope,order_data.order_id,order_oid_info.to_string()};
-   auto var_order_oid = order_oid_temp.to_variant();
-   auto json_oid = fc::json::to_string(order_oid_temp);
-
-   auto oid_doc = bsoncxx::builder::basic::document{};
-
-   try {
-      const auto& value = bsoncxx::from_json( json_oid );
-      oid_doc.append( kvp( "order", value ) );
-   } catch( bsoncxx::exception& ) {
-      try {
-         json_oid = fc::prune_invalid_utf8( json_oid );
-         const auto& value = bsoncxx::from_json( json_oid );
-         oid_doc.append( kvp( "order", value ) );
-         oid_doc.append( kvp( "non-utf8-purged", b_bool{true} ) );
-      } catch( bsoncxx::exception& e ) {
-         elog( "Unable to convert block JSON to MongoDB JSON: ${e}", ("e", e.what()) );
-         elog( "  JSON: ${j}", ("j", json) );
-      }
-   }
-
-   oid_doc.append( kvp( "createdAt", b_date{now} ) );
-   try {
-
-      if( !_order_ids.update_one( make_document( kvp( "scope_orderid", bsoncxx::decimal128{order_data.scope,order_data.order_id} ) ) ,
-                               make_document( kvp( "$set", oid_doc.view() ) ), update_opts ) ) {
-         EOS_ASSERT( false, chain::mongo_db_insert_fail, "Failed to insert order oid ${scope},${order_id}", ("scope", order_data.scope)("order_id",order_data.order_id) );
-      }
-
-   } catch( ... ) {
-      handle_mongo_exception( "blocks insert: " + json, __LINE__ );
-   }
 }
 
 void mongo_match_plugin_impl::handledeal(const match::recorddeal &deal_data) {
@@ -652,15 +616,9 @@ void mongo_match_plugin_impl::handledeal(const match::recorddeal &deal_data) {
 void mongo_match_plugin_impl::modifyorder(const uint64_t &scope,const uint64_t &order_id,const asset &base,const asset &quote) {
    using bsoncxx::builder::basic::make_document;
    using bsoncxx::builder::basic::kvp;
-   auto order_oid_info = _order_ids.find_one( make_document( kvp( "scope_orderid", bsoncxx::decimal128{scope,order_id})));
-   if (!order_oid_info) {
-      FC_ASSERT( false, "no order id find");
-      return ;
-   }
 
-   auto oid_info = order_oid_info->view()["order_oid"]["oid"].get_utf8().value.to_string();
-   auto order_info = _orders.find_one( make_document( kvp( "order_oid", bsoncxx::oid(oid_info) )));
-   if (!order_oid_info) {
+   auto order_info = _orders.find_one( make_document( kvp( "scope_orderid", bsoncxx::decimal128{scope,order_id})));
+   if (!order_info) {
       FC_ASSERT( false, "no order find");
       return ;
    }
@@ -901,9 +859,6 @@ void mongo_match_plugin_impl::init() {
 
          auto deals = mongo_conn[db_name][deals_col];
          deals.create_index( bsoncxx::from_json( R"xxx({ "scope" : 1, "_id" : 1 })xxx" ));
-
-         auto order_ids = mongo_conn[db_name][order_ids_col];
-         order_ids.create_index( bsoncxx::from_json( R"xxx({ "scope_orderid" : 1, "_id" : 1 })xxx" ));
       }
       //todo
    } catch (...) {
