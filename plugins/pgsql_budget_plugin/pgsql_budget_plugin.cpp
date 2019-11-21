@@ -66,10 +66,7 @@ class pgsql_budget_plugin_impl {
       void process_irreversible_block(const chain::block_state_ptr&);
       void _process_irreversible_block(const chain::block_state_ptr&);
 
-      
-
       void init();
-
 
       template<typename Queue, typename Entry> void queue(Queue& queue, const Entry& e);
 
@@ -135,9 +132,7 @@ void pgsql_budget_plugin_impl::queue( Queue& queue, const Entry& e ) {
 
 void pgsql_budget_plugin_impl::accepted_transaction( const chain::transaction_metadata_ptr& t ) {
    try {
-      if( store_transactions ) {
          queue( transaction_metadata_queue, t );
-      }
    } catch (fc::exception& e) {
       elog("FC Exception while accepted_transaction ${e}", ("e", e.to_string()));
    } catch (std::exception& e) {
@@ -149,9 +144,6 @@ void pgsql_budget_plugin_impl::accepted_transaction( const chain::transaction_me
 
 void pgsql_budget_plugin_impl::applied_transaction( const chain::transaction_trace_ptr& t ) {
    try {
-      if( !is_producer && !t->producer_block_id.valid() )
-         return;
-      // always queue since account information always gathered
       queue( transaction_trace_queue, t );
    } catch (fc::exception& e) {
       elog("FC Exception while applied_transaction ${e}", ("e", e.to_string()));
@@ -164,9 +156,7 @@ void pgsql_budget_plugin_impl::applied_transaction( const chain::transaction_tra
 
 void pgsql_budget_plugin_impl::applied_irreversible_block( const chain::block_state_ptr& bs ) {
    try {
-      if( store_blocks || store_block_states || store_transactions ) {
          queue( irreversible_block_state_queue, bs );
-      }
    } catch (fc::exception& e) {
       elog("FC Exception while applied_irreversible_block ${e}", ("e", e.to_string()));
    } catch (std::exception& e) {
@@ -178,14 +168,7 @@ void pgsql_budget_plugin_impl::applied_irreversible_block( const chain::block_st
 
 void pgsql_budget_plugin_impl::accepted_block( const chain::block_state_ptr& bs ) {
    try {
-      if( !start_block_reached ) {
-         if( bs->block_num >= start_block_num ) {
-            start_block_reached = true;
-         }
-      }
-      if( store_blocks || store_block_states ) {
          queue( block_state_queue, bs );
-      }
    } catch (fc::exception& e) {
       elog("FC Exception while accepted_block ${e}", ("e", e.to_string()));
    } catch (std::exception& e) {
@@ -309,9 +292,7 @@ void pgsql_budget_plugin_impl::consume_blocks() {
 
 void pgsql_budget_plugin_impl::process_accepted_transaction( const chain::transaction_metadata_ptr& t ) {
    try {
-      if( start_block_reached ) {
          _process_accepted_transaction( t );
-      }
    } catch (fc::exception& e) {
       elog("FC Exception while processing accepted transaction metadata: ${e}", ("e", e.to_detail_string()));
    } catch (std::exception& e) {
@@ -363,28 +344,24 @@ void pgsql_budget_plugin_impl::process_accepted_block( const chain::block_state_
 }
 
 void pgsql_budget_plugin_impl::_process_accepted_transaction( const chain::transaction_metadata_ptr& t ) {
-   
-
+   ilog("xuyapeng add for test _process_accepted_transaction**********");
 }
 
 
 void pgsql_budget_plugin_impl::_process_applied_transaction( const chain::transaction_trace_ptr& t ) {
-   
-
+   ilog("xuyapeng add for test _process_applied_transaction//////////");
 }
 
 void pgsql_budget_plugin_impl::_process_accepted_block( const chain::block_state_ptr& bs ) {
-   
+   ilog("xuyapeng add for test _process_accepted_block++++++++++");
 }
 
-void pgsql_budget_plugin_impl::_process_irreversible_block(const chain::block_state_ptr& bs)
-{
-   
+void pgsql_budget_plugin_impl::_process_irreversible_block(const chain::block_state_ptr& bs) {
+   ilog("xuyapeng add for test _process_accepted_block-------------");
 }
 
 
-pgsql_budget_plugin_impl::pgsql_budget_plugin_impl()
-{
+pgsql_budget_plugin_impl::pgsql_budget_plugin_impl() {
 }
 
 pgsql_budget_plugin_impl::~pgsql_budget_plugin_impl() {
@@ -404,7 +381,10 @@ pgsql_budget_plugin_impl::~pgsql_budget_plugin_impl() {
 
 
 void pgsql_budget_plugin_impl::init() {
-   
+   consume_thread = std::thread( [this] {
+      fc::set_os_thread_name( "mongodb" );
+      consume_blocks();
+   } );
 }
 
 ////////////
@@ -459,7 +439,29 @@ void pgsql_budget_plugin::set_program_options(options_description& cli, options_
 
 void pgsql_budget_plugin::plugin_initialize(const variables_map& options)
 {
+   ilog("xuyapeng add for test pgsql_budget_plugin::plugin_initialize");
+   chain_plugin* chain_plug = app().find_plugin<chain_plugin>();
+   EOS_ASSERT( chain_plug, chain::missing_chain_plugin_exception, ""  );
+   auto& chain = chain_plug->chain();
+   my->chain_id.emplace( chain.get_chain_id());
 
+   my->accepted_block_connection.emplace( chain.accepted_block.connect( [&]( const chain::block_state_ptr& bs ) {
+      my->accepted_block( bs );
+   } ));
+   my->irreversible_block_connection.emplace(
+         chain.irreversible_block.connect( [&]( const chain::block_state_ptr& bs ) {
+            my->applied_irreversible_block( bs );
+         } ));
+   my->accepted_transaction_connection.emplace(
+         chain.accepted_transaction.connect( [&]( const chain::transaction_metadata_ptr& t ) {
+            my->accepted_transaction( t );
+         } ));
+   my->applied_transaction_connection.emplace(
+         chain.applied_transaction.connect( [&]( std::tuple<const chain::transaction_trace_ptr&, const chain::signed_transaction&> t ) {
+            my->applied_transaction( std::get<0>(t) );
+         } ));
+
+   my->init();
 }
 
 void pgsql_budget_plugin::plugin_startup()
