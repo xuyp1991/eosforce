@@ -19,7 +19,7 @@ add_subdirectory(mongo_db_plugin)
 add_subdirectory(login_plugin)
 add_subdirectory(test_control_plugin)
 add_subdirectory(test_control_api_plugin)
-#add_subdirectory(elasticsearch_plugin)
+add_subdirectory(pgsql_budget_plugin)
 add_subdirectory(heartbeat_plugin)
 add_subdirectory(producer_heartbeat_plugin)
 
