@@ -62,40 +62,58 @@ def createNodeDir(nodeIndex, bpaccount, key):
     run('rm -rf ' + dir)
     run('mkdir -p ' + dir)
 
+    # data dir
+    run('mkdir -p ' + dir + 'datas/')
+    run('cp -r ' + args.config_dir + ' ' +  dir)
+
+    config_opts = ''.join(list(map(lambda i: ('p2p-peer-address = 127.0.0.1:%d\n' % (9001 + (nodeIndex + i) % 23 )), range(6))))
+
+    config_opts += (
+        ('\n\nhttp-server-address = 0.0.0.0:%d\n' % (8000 + nodeIndex)) +
+        ('p2p-listen-endpoint = 0.0.0.0:%d\n\n\n' % (9000 + nodeIndex)) +
+        ('producer-name = %s\n' % (bpaccount['name'])) +
+        ('signature-provider = %s=KEY:%s\n' % ( bpaccount['bpkey'], key[1] )) +
+        ('bp-mapping = %s=KEY:%sa\n\n\n' % ( bpaccount['name'], bpaccount['name'] )) +
+        'plugin = eosio::chain_api_plugin\n' +
+        'plugin = eosio::history_plugin\n' +
+        'plugin = eosio::history_api_plugin\n' +
+        'plugin = eosio::producer_plugin\n' +
+        'plugin = eosio::http_plugin\n\n\n' +
+        'contracts-console = true\n' +
+        ('agent-name = "TestBPNode%2d"\n' % (nodeIndex)) +
+        'http-validate-host=false\n' +
+        ('max-clients = %d\n' % (datas["maxClients"])) +
+        'chain-state-db-size-mb = 16384\n' +
+        'https-client-validate-peers = false\n' +
+        'access-control-allow-origin = *\n' +
+        'access-control-allow-headers = Content-Type\n' +
+        'p2p-max-nodes-per-host = 10\n' +
+        'allowed-connection = any\n' +
+        'max-transaction-time = 16000\n' +
+        'max-irreversible-block-age = 36000\n' +
+        'enable-stale-production = true\n' +
+        'filter-on=*\n\n\n'
+    )
+
+    # config files
+    with open(dir + 'config/config.ini', mode='w') as f:
+        f.write(config_opts)
+
 def createNodeDirs(inits, keys):
     for i in range(0, len(inits)):
         createNodeDir(i + 1, datas["initProducers"][i], keys[i])
 
 def startNode(nodeIndex, bpaccount, key):
     dir = args.nodes_dir + ('%02d-' % nodeIndex) + bpaccount['name'] + '/'
-    otherOpts = ''.join(list(map(lambda i: '    --p2p-peer-address 127.0.0.1:' + str(9001 + i), range(24 - 1))))
-    if not nodeIndex: otherOpts += (
-        '    --plugin eosio::history_plugin'
-        '    --plugin eosio::history_api_plugin'
-    )
 
     print('bpaccount ', bpaccount)
     print('key ', key, ' ', key[1])
 
     cmd = (
         args.nodeos +
-        '    --blocks-dir ' + os.path.abspath(dir) + '/blocks'
-        '    --config-dir ' + os.path.abspath(dir) + '/../../config'
-        '    --data-dir ' + os.path.abspath(dir) +
-        '    --http-server-address 0.0.0.0:' + str(8000 + nodeIndex) +
-        '    --p2p-listen-endpoint 0.0.0.0:' + str(9000 + nodeIndex) +
-        '    --max-clients ' + str(datas["maxClients"]) +
-        '    --p2p-max-nodes-per-host ' + str(datas["maxClients"]) +
-        '    --enable-stale-production'
-        '    --producer-name ' + bpaccount['name'] +
-        '    --signature-provider=' + bpaccount['bpkey'] + '=KEY:' + key[1] +
-        '    --contracts-console ' +
-		'    --bp-mapping=' + bpaccount['name'] + '=KEY:' + bpaccount['name']  + 'a' +
-        '    --plugin eosio::http_plugin' +
-        '    --plugin eosio::chain_api_plugin' +
-        '    --plugin eosio::producer_plugin' +
-        '    --plugin eosio::heartbeat_plugin' +
-        otherOpts)
+        '    --config-dir ' + os.path.abspath(dir) + '/config'
+        '    --data-dir ' + os.path.abspath(dir) + '/datas'
+    )
     with open(dir + '../' + bpaccount['name'] + '.log', mode='w') as f:
         f.write(cmd + '\n\n')
     background(cmd + '    2>>' + dir + '../' + bpaccount['name'] + '.log')
@@ -123,7 +141,7 @@ def stepCreateWallet():
 
 def stepStartProducers():
     startProducers(datas["initProducers"], datas["initProducerSigKeys"])
-    sleep(3)
+    sleep(8)
     stepSetFuncs()
 
 def stepCreateNodeDirs():
@@ -154,24 +172,22 @@ def stepMakeGenesis():
     run('mkdir -p ' + os.path.abspath(args.config_dir))
     run('mkdir -p ' + os.path.abspath(args.config_dir) + '/keys/' )
 
-    run('cp ' + args.contracts_dir + '/eosio.token/eosio.token.abi ' + os.path.abspath(args.config_dir))
-    run('cp ' + args.contracts_dir + '/eosio.token/eosio.token.wasm ' + os.path.abspath(args.config_dir))
-    run('cp ' + args.contracts_dir + '/System02/System02.abi ' + os.path.abspath(args.config_dir))
-    run('cp ' + args.contracts_dir + '/System02/System02.wasm ' + os.path.abspath(args.config_dir))
-    run('cp ' + args.contracts_dir + '/eosio.bios/eosio.bios.abi ' + os.path.abspath(args.config_dir))
-    run('cp ' + args.contracts_dir + '/eosio.bios/eosio.bios.wasm ' + os.path.abspath(args.config_dir))
-    run('cp ' + args.contracts_dir + '/eosio.msig/eosio.msig.abi ' + os.path.abspath(args.config_dir))
-    run('cp ' + args.contracts_dir + '/eosio.msig/eosio.msig.wasm ' + os.path.abspath(args.config_dir))
-    run('cp ' + args.contracts_dir + '/eosio.lock/eosio.lock.abi ' + os.path.abspath(args.config_dir))
-    run('cp ' + args.contracts_dir + '/eosio.lock/eosio.lock.wasm ' + os.path.abspath(args.config_dir))
+    run('cp ' + args.contracts_dir + '/eosio.token.abi ' + os.path.abspath(args.config_dir))
+    run('cp ' + args.contracts_dir + '/eosio.token.wasm ' + os.path.abspath(args.config_dir))
+    run('cp ' + args.contracts_dir + '/System02.abi ' + os.path.abspath(args.config_dir))
+    run('cp ' + args.contracts_dir + '/System02.wasm ' + os.path.abspath(args.config_dir))
+    run('cp ' + args.contracts_dir + '/eosio.msig.abi ' + os.path.abspath(args.config_dir))
+    run('cp ' + args.contracts_dir + '/eosio.msig.wasm ' + os.path.abspath(args.config_dir))
+    run('cp ' + args.contracts_dir + '/eosio.lock.abi ' + os.path.abspath(args.config_dir))
+    run('cp ' + args.contracts_dir + '/eosio.lock.wasm ' + os.path.abspath(args.config_dir))
 
     # testnet will use new System contract from start
-    run('cp ' + args.contracts_dir + '/System02/System02.abi ' + os.path.abspath(args.config_dir) + "/System01.abi")
-    run('cp ' + args.contracts_dir + '/System02/System02.wasm ' + os.path.abspath(args.config_dir) + "/System01.wasm")
+    run('cp ' + args.contracts_dir + '/System02.abi ' + os.path.abspath(args.config_dir) + "/System01.abi")
+    run('cp ' + args.contracts_dir + '/System02.wasm ' + os.path.abspath(args.config_dir) + "/System01.wasm")
 
     # testnet will use new System contract from start
-    run('cp ' + args.contracts_dir + '/System02/System02.abi ' + os.path.abspath(args.config_dir) + "/System.abi")
-    run('cp ' + args.contracts_dir + '/System02/System02.wasm ' + os.path.abspath(args.config_dir) + "/System.wasm")
+    run('cp ' + args.contracts_dir + '/System02.abi ' + os.path.abspath(args.config_dir) + "/System.abi")
+    run('cp ' + args.contracts_dir + '/System02.wasm ' + os.path.abspath(args.config_dir) + "/System.wasm")
 
     run(args.root + 'build/programs/genesis/genesis')
     run('mv ./genesis.json ' + os.path.abspath(args.config_dir))
@@ -181,23 +197,47 @@ def stepMakeGenesis():
 
     run('echo "[]" >> ' + os.path.abspath(args.config_dir) + '/activeacc.json')
 
+def cleos(cmd):
+    run(args.cleos + cmd)
+    sleep(.5)
+
+def pushAction(account, action, permission, data_str):
+    data_str = data_str.replace('\'', '\"')
+    cleos( 'push action %s %s \'%s\' -p %s' % (account, action, data_str, permission) )
+
+def setNumConfig(func_typ, num):
+    pushAction( 'eosio', 'setconfig', 'force.config',
+        ('{"typ":"%s","num":%s,"key":"","fee":"0.0000 EOS"}' % (func_typ, num)) )
+
+def setAssetConfig(func_typ, asset):
+    pushAction( 'eosio', 'setconfig', 'force.config',
+        ('{"typ":"%s","num":0,"key":"","fee":"%s"}' % (func_typ, asset)) )
+
 def setFuncStartBlock(func_typ, num):
-    run(args.cleos +
-        'push action eosio setconfig ' +
-        ('\'{"typ":"%s","num":%s,"key":"","fee":"0.0000 EOS"}\' ' % (func_typ, num)) +
-        '-p force.config' )
+    setNumConfig(func_typ, num)
 
 def setFee(account, act, fee, cpu, net, ram):
-    run(args.cleos +
-        'set setfee ' +
-        ('%s %s ' % (account, act)) +
-        ('"%s EOS" %d %d %d' % (fee, cpu, net, ram)))
+    cleos( 'set setfee ' +
+           ('%s %s ' % (account, act)) +
+           ('"%s EOS" %d %d %d' % (fee, cpu, net, ram)))
 
 def stepSetFuncs():
     # we need set some func start block num
     setFee('eosio', 'setconfig', '0.0100', 100000, 1000000, 1000)
-    setFuncStartBlock('f.ram4vote', 10)
-    setFuncStartBlock('f.onfeeact', 15)
+    setFuncStartBlock('f.system1',  10)
+    setFuncStartBlock('f.msig',     11)
+    setFuncStartBlock('f.prods',    12)
+    setFuncStartBlock('f.eosio',    13)
+    setFuncStartBlock('f.feelimit', 14)
+    setFuncStartBlock('f.ram4vote', 15)
+    setFuncStartBlock('f.onfeeact', 16)
+    setFuncStartBlock('f.cprod',    17)
+
+    setNumConfig('res.trxsize', 10240000) # should add trx size limit in new version
+
+    setFee('eosio', 'votefix',    '0.2500', 5000,   512, 128)
+    setFee('eosio', 'revotefix',  '0.5000', 10000, 1024, 128)
+    setFee('eosio', 'outfixvote', '0.0500', 1000,   512, 128)
 
 def clearData():
     stepKillAll()
@@ -236,7 +276,7 @@ commands = [
 ]
 
 parser.add_argument('--root', metavar='', help="Eosforce root dir from git", default='../../')
-parser.add_argument('--contracts-dir', metavar='', help="Path to contracts directory", default='build/contracts/')
+parser.add_argument('--contracts-dir', metavar='', help="Path to contracts directory", default='tutorials/genesis-contracts/')
 parser.add_argument('--cleos', metavar='', help="Cleos command", default='build/programs/cleos/cleos --wallet-url http://127.0.0.1:6666 ')
 parser.add_argument('--nodeos', metavar='', help="Path to nodeos binary", default='build/programs/nodeos/nodeos')
 parser.add_argument('--nodes-dir', metavar='', help="Path to nodes directory", default='./nodes/')

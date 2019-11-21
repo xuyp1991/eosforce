@@ -27,6 +27,7 @@ namespace eosio { namespace chain {
       init_native_fee(config::token_account_name, N(transfer), asset(100));
       init_native_fee(config::token_account_name, N(issue),    asset(100));
       init_native_fee(config::token_account_name, N(create),   asset(10*10000));
+      init_native_fee(config::system_account_name, N(removebp), asset(100*10000));
 
       init_native_fee(config::system_account_name, N(setabi),  asset(1000));
       init_native_fee(config::system_account_name, N(setfee),  asset(1000));
@@ -44,18 +45,6 @@ namespace eosio { namespace chain {
       init_native_fee(config::msig_account_name, N(unapprove), asset(10000));
       init_native_fee(config::msig_account_name, N(cancel),    asset(10000));
       init_native_fee(config::msig_account_name, N(exec),      asset(10000));
-   }
-
-   bool txfee_manager::check_transaction( const transaction& trx)const
-   {
-      for( const auto& act : trx.actions ) {
-          for (const auto & perm : act.authorization) {
-            if (perm.actor != trx.actions[0].authorization[0].actor) {
-                return false;
-            }
-          }
-      }
-      return true;
    }
 
    /*
@@ -93,8 +82,7 @@ namespace eosio { namespace chain {
     */
 
 
-   asset txfee_manager::get_required_fee( const controller& ctl, const transaction& trx)const
-   {
+   asset txfee_manager::get_required_fee( const controller& ctl, const transaction& trx ) const {
       auto fee = asset(0);
 
       for (const auto& act : trx.actions ) {
@@ -104,28 +92,28 @@ namespace eosio { namespace chain {
       return fee;
    }
 
-   asset txfee_manager::get_required_fee( const controller& ctl, const action& act)const{
+   asset txfee_manager::get_required_fee( const controller& ctl, const account_name& account, const action_name& act ) const {
       const auto &db = ctl.db();
       const auto block_num = ctl.head_block_num();
 
       // keep consensus for main net, some action in main net exec action
       // like newaccount in diff account
       {
-         if ((act.name == N(newaccount)) &&
-             ((act.account == N(eosio.bios))
-              || (act.account == N(eosio.token))
+         if ((act == N(newaccount)) &&
+             ((account == N(eosio.bios))
+              || (account == N(eosio.token))
              )) {
-            const auto native_fee = get_native_fee(block_num, config::system_account_name, act.name);
+            const auto native_fee = get_native_fee(block_num, config::system_account_name, act);
             if (native_fee != asset(0)) {
                return native_fee;
             }
          }
 
-         if ((act.name == N(transfer)) &&
-             (   (act.account == N(victor))
-                 || (act.account == N(eosvictor))
+         if ((act == N(transfer)) &&
+             (   (account == N(victor))
+                 || (account == N(eosvictor))
              )) {
-            const auto native_fee = get_native_fee(block_num, config::system_account_name, act.name);
+            const auto native_fee = get_native_fee(block_num, config::system_account_name, act);
             if (native_fee != asset(0)) {
                return native_fee;
             }
@@ -135,7 +123,7 @@ namespace eosio { namespace chain {
       // first check if changed fee
       try{
          const auto fee_in_db = db.find<action_fee_object, by_action_name>(
-               boost::make_tuple(act.account, act.name));
+               boost::make_tuple(account, act));
          if(    ( fee_in_db != nullptr )
                 && ( fee_in_db->fee != asset(0) ) ){
             return fee_in_db->fee;
@@ -146,7 +134,7 @@ namespace eosio { namespace chain {
          elog("catch unknown exp in get_required_fee");
       }
 
-      const auto native_fee = get_native_fee(block_num, act.account, act.name);
+      const auto native_fee = get_native_fee(block_num, account, act);
       if (native_fee != asset(0)) {
          return native_fee;
       }
@@ -154,7 +142,11 @@ namespace eosio { namespace chain {
       // no fee found throw err
       EOS_ASSERT(false, action_validate_exception,
                  "action ${acc} ${act} name not include in feemap or db",
-                 ("acc", act.account)("act", act.name));
+                 ("acc", account)("act", act));
+   }
+
+   asset txfee_manager::get_required_fee( const controller& ctl, const action& act ) const {
+      return get_required_fee( ctl, act.account, act.name );
    }
 
 } } /// namespace eosio::chain

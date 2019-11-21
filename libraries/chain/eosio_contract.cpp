@@ -1,6 +1,6 @@
 /**
  *  @file
- *  @copyright defined in eos/LICENSE.txt
+ *  @copyright defined in eos/LICENSE
  */
 #include <eosio/chain/eosio_contract.hpp>
 #include <eosio/chain/contract_table_objects.hpp>
@@ -10,23 +10,22 @@
 #include <eosio/chain/apply_context.hpp>
 #include <eosio/chain/transaction.hpp>
 #include <eosio/chain/exceptions.hpp>
-#include <eosio/chain/memory_db.hpp>
 
 #include <eosio/chain/account_object.hpp>
+#include <eosio/chain/code_object.hpp>
 #include <eosio/chain/permission_object.hpp>
 #include <eosio/chain/permission_link_object.hpp>
 #include <eosio/chain/global_property_object.hpp>
 #include <eosio/chain/contract_types.hpp>
-#include <eosio/chain/producer_object.hpp>
 
 #include <eosio/chain/wasm_interface.hpp>
 #include <eosio/chain/abi_serializer.hpp>
 
-#include <eosio/chain/config_on_chain.hpp>
-
 #include <eosio/chain/authorization_manager.hpp>
 #include <eosio/chain/resource_limits.hpp>
-// #include <eosio/chain/contract_table_objects.hpp>
+
+#include <eosio/chain/memory_db.hpp>
+#include <eosio/chain/config_on_chain.hpp>
 #include <eosio/chain/config.hpp>
 #include <eosio/chain/txfee_manager.hpp>
 
@@ -74,7 +73,7 @@ void validate_authority_precondition( const apply_context& context, const author
  *  This method is called assuming precondition_system_newaccount succeeds a
  */
 void apply_eosio_newaccount(apply_context& context) {
-   auto create = context.act.data_as<newaccount>();
+   auto create = context.get_action().data_as<newaccount>();
    try {
    context.require_authorization(create.creator);
 //   context.require_write_lock( config::eosio_auth_scope );
@@ -91,9 +90,8 @@ void apply_eosio_newaccount(apply_context& context) {
    EOS_ASSERT( name_str.size() <= 12, action_validate_exception, "account names can only be 12 chars long" );
 
    // Check if the creator is privileged
-   const auto &creator = db.get<account_object, by_name>(create.creator);
-   EOS_ASSERT(!creator.privileged, action_validate_exception, "not support privileged accounts");
-
+   const auto &creator = db.get<account_metadata_object, by_name>(create.creator);
+   EOS_ASSERT(!creator.is_privileged(), action_validate_exception, "not support privileged accounts");
 
    if(    is_func_has_open(context.control, config::func_typ::onfee_action)
        && (create.creator != config::system_account_name)
@@ -113,7 +111,7 @@ void apply_eosio_newaccount(apply_context& context) {
       a.creation_date = context.control.pending_block_time();
    });
 
-   db.create<account_sequence_object>([&](auto& a) {
+   db.create<account_metadata_object>([&](auto& a) {
       a.name = create.name;
    });
 
@@ -147,41 +145,69 @@ void apply_eosio_setcode(apply_context& context) {
    const auto& cfg = context.control.get_global_properties().configuration;
 
    auto& db = context.db;
-   auto  act = context.act.data_as<setcode>();
+   auto  act = context.get_action().data_as<setcode>();
    context.require_authorization(act.account);
 
    EOS_ASSERT( act.vmtype == 0, invalid_contract_vm_type, "code should be 0" );
    EOS_ASSERT( act.vmversion == 0, invalid_contract_vm_version, "version should be 0" );
 
-   fc::sha256 code_id; /// default ID == 0
+   fc::sha256 code_hash; /// default is the all zeros hash
 
-   if( act.code.size() > 0 ) {
-     code_id = fc::sha256::hash( act.code.data(), (uint32_t)act.code.size() );
+   int64_t code_size = (int64_t)act.code.size();
+
+   if( code_size > 0 ) {
+     code_hash = fc::sha256::hash( act.code.data(), (uint32_t)act.code.size() );
      wasm_interface::validate(context.control, act.code);
    }
 
-   const auto& account = db.get<account_object,by_name>(act.account);
+   const auto& account = db.get<account_metadata_object,by_name>(act.account);
+   bool existing_code = (account.code_hash != digest_type());
 
-   int64_t code_size = (int64_t)act.code.size();
-   int64_t old_size  = (int64_t)account.code.size() * config::setcode_ram_bytes_multiplier;
+   EOS_ASSERT( code_size > 0 || existing_code, set_exact_code, "contract is already cleared" );
+
+   int64_t old_size  = 0;
    int64_t new_size  = code_size * config::setcode_ram_bytes_multiplier;
 
-   EOS_ASSERT( account.code_version != code_id, set_exact_code, "contract is already running this version of code" );
+   if( existing_code ) {
+      const code_object& old_code_entry = db.get<code_object, by_code_hash>(boost::make_tuple(account.code_hash, account.vm_type, account.vm_version));
+      EOS_ASSERT( old_code_entry.code_hash != code_hash, set_exact_code,
+                  "contract is already running this version of code" );
+      old_size  = (int64_t)old_code_entry.code.size() * config::setcode_ram_bytes_multiplier;
+      if( old_code_entry.code_ref_count == 1 ) {
+         db.remove(old_code_entry);
+         context.control.get_wasm_interface().code_block_num_last_used(account.code_hash, account.vm_type, account.vm_version, context.control.head_block_num() + 1);
+      } else {
+         db.modify(old_code_entry, [](code_object& o) {
+            --o.code_ref_count;
+         });
+      }
+   }
+
+   if( code_size > 0 ) {
+      const code_object* new_code_entry = db.find<code_object, by_code_hash>(
+                                             boost::make_tuple(code_hash, act.vmtype, act.vmversion) );
+      if( new_code_entry ) {
+         db.modify(*new_code_entry, [&](code_object& o) {
+            ++o.code_ref_count;
+         });
+      } else {
+         db.create<code_object>([&](code_object& o) {
+            o.code_hash = code_hash;
+            o.code.assign(act.code.data(), code_size);
+            o.code_ref_count = 1;
+            o.first_block_used = context.control.head_block_num() + 1;
+            o.vm_type = act.vmtype;
+            o.vm_version = act.vmversion;
+         });
+      }
+   }
 
    db.modify( account, [&]( auto& a ) {
-      /** TODO: consider whether a microsecond level local timestamp is sufficient to detect code version changes*/
-      // TODO: update setcode message to include the hash, then validate it in validate
+      a.code_sequence += 1;
+      a.code_hash = code_hash;
+      a.vm_type = act.vmtype;
+      a.vm_version = act.vmversion;
       a.last_code_update = context.control.pending_block_time();
-      a.code_version = code_id;
-      a.code.resize( code_size );
-      if( code_size > 0 )
-         memcpy( a.code.data(), act.code.data(), code_size );
-
-   });
-
-   const auto& account_sequence = db.get<account_sequence_object, by_name>(act.account);
-   db.modify( account_sequence, [&]( auto& aso ) {
-      aso.code_sequence += 1;
    });
 
    if (new_size != old_size) {
@@ -192,7 +218,7 @@ void apply_eosio_setcode(apply_context& context) {
 // setfee just for test imp contracts
 void apply_eosio_setfee(apply_context& context) {
    auto &db = context.db;
-   auto act = context.act.data_as<setfee>();
+   auto  act = context.get_action().data_as<setfee>();
 
    // need force.test
    // TODO add power Invalid block number
@@ -275,7 +301,7 @@ void apply_eosio_setfee(apply_context& context) {
 
 void apply_eosio_setabi(apply_context& context) {
    auto& db  = context.db;
-   auto  act = context.act.data_as<setabi>();
+   auto  act = context.get_action().data_as<setabi>();
 
    context.require_authorization(act.account);
 
@@ -287,14 +313,16 @@ void apply_eosio_setabi(apply_context& context) {
    int64_t new_size = abi_size;
 
    db.modify( account, [&]( auto& a ) {
-      a.abi.resize( abi_size );
-      if( abi_size > 0 )
-         memcpy( a.abi.data(), act.abi.data(), abi_size );
+      if (abi_size > 0) {
+         a.abi.assign(act.abi.data(), abi_size);
+      } else {
+         a.abi.resize(0);
+      }
    });
 
-   const auto& account_sequence = db.get<account_sequence_object, by_name>(act.account);
-   db.modify( account_sequence, [&]( auto& aso ) {
-      aso.abi_sequence += 1;
+   const auto& account_metadata = db.get<account_metadata_object, by_name>(act.account);
+   db.modify( account_metadata, [&]( auto& a ) {
+      a.abi_sequence += 1;
    });
 
    if (new_size != old_size) {
@@ -304,7 +332,7 @@ void apply_eosio_setabi(apply_context& context) {
 
 void apply_eosio_updateauth(apply_context& context) {
 
-   auto update = context.act.data_as<updateauth>();
+   auto update = context.get_action().data_as<updateauth>();
    context.require_authorization(update.account); // only here to mark the single authority on this action as used
 
    auto& authorization = context.control.get_mutable_authorization_manager();
@@ -371,7 +399,7 @@ void apply_eosio_updateauth(apply_context& context) {
 void apply_eosio_deleteauth(apply_context& context) {
 //   context.require_write_lock( config::eosio_auth_scope );
 
-   auto remove = context.act.data_as<deleteauth>();
+   auto remove = context.get_action().data_as<deleteauth>();
    context.require_authorization(remove.account); // only here to mark the single authority on this action as used
 
    EOS_ASSERT(remove.permission != config::active_name, action_validate_exception, "Cannot delete active authority");
@@ -402,7 +430,7 @@ void apply_eosio_deleteauth(apply_context& context) {
 void apply_eosio_linkauth(apply_context& context) {
 //   context.require_write_lock( config::eosio_auth_scope );
 
-   auto requirement = context.act.data_as<linkauth>();
+   auto requirement = context.get_action().data_as<linkauth>();
    try {
       EOS_ASSERT(!requirement.requirement.empty(), action_validate_exception, "Required permission cannot be empty");
 
@@ -416,7 +444,15 @@ void apply_eosio_linkauth(apply_context& context) {
       EOS_ASSERT(code != nullptr, account_query_exception,
                  "Failed to retrieve code for account: ${account}", ("account", requirement.code));
       if( requirement.requirement != config::eosio_any_name ) {
-         const auto *permission = db.find<permission_object, by_name>(requirement.requirement);
+         const permission_object* permission = nullptr;
+         if( context.control.is_builtin_activated( builtin_protocol_feature_t::only_link_to_existing_permission ) ) {
+            permission = db.find<permission_object, by_owner>(
+                           boost::make_tuple( requirement.account, requirement.requirement )
+                         );
+         } else {
+            permission = db.find<permission_object, by_name>(requirement.requirement);
+         }
+
          EOS_ASSERT(permission != nullptr, permission_query_exception,
                     "Failed to retrieve permission: ${permission}", ("permission", requirement.requirement));
       }
@@ -451,7 +487,7 @@ void apply_eosio_unlinkauth(apply_context& context) {
 //   context.require_write_lock( config::eosio_auth_scope );
 
    auto& db = context.db;
-   auto unlink = context.act.data_as<unlinkauth>();
+   auto unlink = context.get_action().data_as<unlinkauth>();
 
    context.require_authorization(unlink.account); // only here to mark the single authority on this action as used
 
@@ -467,7 +503,7 @@ void apply_eosio_unlinkauth(apply_context& context) {
 }
 
 void apply_eosio_canceldelay(apply_context& context) {
-   auto cancel = context.act.data_as<canceldelay>();
+   auto cancel = context.get_action().data_as<canceldelay>();
    context.require_authorization(cancel.canceling_auth.actor); // only here to mark the single authority on this action as used
 
    const auto& trx_id = cancel.trx_id;
@@ -476,9 +512,10 @@ void apply_eosio_canceldelay(apply_context& context) {
 }
 
 void apply_eosio_setconfig(apply_context& context) {
-   auto cfg_data = context.act.data_as<setconfig>();
-   if( !( context.has_authorization(config::chain_config_name)
-       || context.has_authorization(config::producers_account_name))) {
+   auto cfg_data = context.get_action().data_as<setconfig>();
+   if(    !context.has_authorization(config::chain_config_name)
+       && !context.has_authorization(config::system_account_name)
+       && !context.has_authorization(config::producers_account_name) ) {
       EOS_THROW(missing_auth_exception, "setconfig need auth by eosio.prods");
       return;
    } 
@@ -487,7 +524,7 @@ void apply_eosio_setconfig(apply_context& context) {
 }
 
 void apply_eosio_onfee( apply_context& context ) {
-   const auto data = context.act.data_as<onfee>();
+   const auto data = context.get_action().data_as<onfee>();
    const auto& fee = data.fee;
 
    // fee is just can push by system auto, so it need less check
@@ -518,6 +555,67 @@ void apply_eosio_onfee( apply_context& context ) {
          a.rewards_pool += fee;
       });
    }
+}
+
+void apply_eosio_voteagefee( apply_context& context ) {
+   const auto data = context.get_action().data_as<voteagefee>();
+   const auto& fee = data.fee;
+
+   // fee is just can push by system auto, so it need less check
+   // need actor authorization
+   // context.require_authorization(data.actor);
+
+   // accounts_table
+   auto acnts_tbl = native_multi_index<N(accounts), memory_db::account_info>{
+         context, config::system_account_name, config::system_account_name
+   };
+   memory_db::account_info account_info_data;
+   acnts_tbl.get(data.actor, account_info_data, "account is not found in accounts table");
+
+   // bps_table
+   auto bps_tbl = native_multi_index<N(bps), memory_db::bp_info>{
+         context, config::system_account_name, config::system_account_name
+   };
+   memory_db::bp_info bp_info_data;
+   bps_tbl.get(data.bpname, bp_info_data, "bpname is not registered");
+      
+   const auto voteage = fee.get_amount() * get_num_config_on_chain( context.db, config::res_typ::votage_ratio, 10000 ) / 10000;
+   const auto curr_block_num = context.control.head_block_num();
+   const auto newest_total_voteage =
+      bp_info_data.total_voteage + bp_info_data.total_staked * (curr_block_num - bp_info_data.voteage_update_height);
+
+   /*ilog("apply_eosio_onfee: fee voteage=${voteage}, bp total_voteage=${total_voteage}, bp total_staked=${total_staked}, curr_block_num=${curr_block_num}, bp voteage_update_height=${voteage_update_height}, newest_total_voteage=${newest_total_voteage}", 
+         ("voteage", voteage)
+         ("total_voteage", bp_info_data.total_voteage)
+         ("total_staked", bp_info_data.total_staked) 
+         ("curr_block_num", curr_block_num)
+         ("voteage_update_height", bp_info_data.voteage_update_height) 
+         ("newest_total_voteage", newest_total_voteage));*/
+   
+   auto votes_tbl = native_multi_index<N(votes), memory_db::vote_info>{
+         context, config::system_account_name, data.actor
+   };
+   memory_db::vote_info vote_info_data;
+   votes_tbl.get(data.bpname, vote_info_data, "voter have not add votes to the the producer yet");
+   
+   const auto newest_voteage = vote_info_data.voteage + (vote_info_data.staked.get_amount() / 10000) * (curr_block_num - vote_info_data.voteage_update_height);
+   
+   /*ilog("apply_eosio_onfee: voter voteage=${voteage}, voter vote=${vote}, voter voteage_update_height=${voteage_update_height}, voter newest_voteage=${newest_voteage}", 
+      ("voteage", vote_info_data.voteage) 
+      ("vote", vote_info_data.staked.get_amount() / 10000)
+      ("voteage_update_height", vote_info_data.voteage_update_height) 
+      ("newest_voteage", newest_voteage));*/
+   eosio_contract_assert(voteage > 0 && voteage <= newest_voteage, "voteage must be greater than zero and have sufficient voteage!");
+   
+   votes_tbl.modify(votes_tbl.find_itr(data.bpname), vote_info_data, 0, [&]( memory_db::vote_info& v ) {
+      v.voteage = newest_voteage - voteage;
+      v.voteage_update_height = curr_block_num;
+   });
+   
+   bps_tbl.modify(bps_tbl.find_itr(data.bpname), bp_info_data, 0, [&]( memory_db::bp_info& b ) {
+      b.total_voteage = static_cast<int64_t>(newest_total_voteage - voteage);
+      b.voteage_update_height = curr_block_num;
+   });
 }
 
 } } // namespace eosio::chain

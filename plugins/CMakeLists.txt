@@ -1,4 +1,3 @@
-add_subdirectory(bnet_plugin)
 add_subdirectory(net_plugin)
 add_subdirectory(net_api_plugin)
 add_subdirectory(http_plugin)
@@ -20,8 +19,9 @@ add_subdirectory(mongo_db_plugin)
 add_subdirectory(login_plugin)
 add_subdirectory(test_control_plugin)
 add_subdirectory(test_control_api_plugin)
-add_subdirectory(elasticsearch_plugin)
+#add_subdirectory(elasticsearch_plugin)
 add_subdirectory(heartbeat_plugin)
+add_subdirectory(producer_heartbeat_plugin)
 
 # Forward variables to top level so packaging picks them up
 set(CPACK_DEBIAN_PACKAGE_DEPENDS ${CPACK_DEBIAN_PACKAGE_DEPENDS} PARENT_SCOPE)
