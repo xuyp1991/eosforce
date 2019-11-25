@@ -11,6 +11,7 @@
   target_include_directories(pgsql_budget_plugin
           PRIVATE ${LIBMONGOCXX_STATIC_INCLUDE_DIRS} ${LIBBSONCXX_STATIC_INCLUDE_DIRS}
           PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include"
+          PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/libraries/libpqxx/include"
           )
 
   target_compile_definitions(pgsql_budget_plugin
@@ -27,6 +28,6 @@
           PUBLIC chain_plugin eosio_chain appbase
           ${LIBMONGOCXX_STATIC_LIBRARY_PATH} ${LIBBSONCXX_STATIC_LIBRARY_PATH}
           ${MONGOC_STATIC_LIBRARY} ${BSON_STATIC_LIBRARY}
-          resolv ${LINK_SASL} ${LINK_ICU} ${LINK_SNAPPY}
+          resolv ${LINK_SASL} ${LINK_ICU} ${LINK_SNAPPY} ${PQXX_LIBRARIES}
           )
 
