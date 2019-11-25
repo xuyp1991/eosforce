@@ -24,6 +24,8 @@
 
 #include <eosio/chain/genesis_state.hpp>
 
+#include <pqxx/pqxx>
+
 namespace fc { class variant; }
 
 namespace eosio {

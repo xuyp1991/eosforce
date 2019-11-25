@@ -17,13 +17,11 @@
     PRIVATE ${LIBMONGOCXX_STATIC_DEFINITIONS} ${LIBBSONCXX_STATIC_DEFINITIONS}
     )
 
-  if (PostgreSQL_INCLUDE_DIR)
     set(SKIP_PQXX_SHARED ON)
     set(SKIP_BUILD_TEST ON)
+    add_subdirectory(libraries/libpqxx EXCLUDE_FROM_ALL)
     set(PQXX_LIBRARIES pqxx_static)
-  else()
-    set(PQXX_LIBRARIES "")
-  endif()
+
 
   target_link_libraries(pgsql_budget_plugin
           PUBLIC chain_plugin eosio_chain appbase
