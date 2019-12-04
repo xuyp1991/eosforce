@@ -26,6 +26,9 @@
 
 #include <pqxx/pqxx>
 
+#include <eosio/chain_plugin/chain_plugin.hpp>
+#include <boost/format.hpp>
+
 namespace fc { class variant; }
 
 namespace eosio {
@@ -69,13 +72,14 @@ class pgsql_budget_plugin_impl {
       void _process_irreversible_block(const chain::block_state_ptr&);
 
       void init();
+      void wipe_database();
 
       template<typename Queue, typename Entry> void queue(Queue& queue, const Entry& e);
 
       bool configured{false};
       bool wipe_database_on_startup{false};
       uint32_t start_block_num = 0;
-      std::atomic_bool start_block_reached{false};
+      std::atomic_bool start_block_reached{true};
 
       bool is_producer = false;
 
@@ -88,6 +92,9 @@ class pgsql_budget_plugin_impl {
       uint32_t expire_after_seconds = 0;
 
       std::string db_name;
+
+      //std::shared_ptr<fill_postgresql_config>              config;
+      std::optional<pqxx::connection>                      sql_connection;
 
 
       size_t max_queue_size = 0;
@@ -346,20 +353,66 @@ void pgsql_budget_plugin_impl::process_accepted_block( const chain::block_state_
 }
 
 void pgsql_budget_plugin_impl::_process_accepted_transaction( const chain::transaction_metadata_ptr& t ) {
-   ilog("xuyapeng add for test _process_accepted_transaction**********");
+   //ilog("xuyapeng add for test _process_accepted_transaction**********");
 }
 
 
 void pgsql_budget_plugin_impl::_process_applied_transaction( const chain::transaction_trace_ptr& t ) {
-   ilog("xuyapeng add for test _process_applied_transaction//////////");
+   //ilog("xuyapeng add for test _process_applied_transaction//////////");
 }
 
 void pgsql_budget_plugin_impl::_process_accepted_block( const chain::block_state_ptr& bs ) {
-   ilog("xuyapeng add for test _process_accepted_block++++++++++");
+   //ilog("xuyapeng add for test _process_accepted_block++++++++++");
 }
 
 void pgsql_budget_plugin_impl::_process_irreversible_block(const chain::block_state_ptr& bs) {
-   ilog("xuyapeng add for test _process_accepted_block-------------");
+   //ilog("xuyapeng add for test _process_accepted_block-------------");
+   auto ro_api = app().get_plugin<chain_plugin>().get_read_only_api();
+   //pqxx::work t(*sql_connection);
+   std::string sqlstr;
+   for( const auto& receipt : bs->block->transactions ) {
+      string trx_id_str;
+      if( receipt.trx.contains<packed_transaction>() ) {
+            const auto& pt = receipt.trx.get<packed_transaction>();
+            // get id via get_raw_transaction() as packed_transaction.id() mutates internal transaction state
+            const auto& raw = pt.get_raw_transaction();
+            const auto& trx = fc::raw::unpack<transaction>( raw );
+
+            for (auto &act: trx.actions)
+            {
+               if (act.name == N(propose) && act.account == N(eosc.budget)) {
+                  eosio::chain_apis::read_only::get_table_rows_params motions_get{true,N(eosc.budget),"eosc.budget",N(motions),"","","",10,"","","dec",false,false};
+                  auto result = ro_api.get_table_rows(temp);
+                  auto test = result.rows[0];
+
+                  std::string insert_sql = str(                  boost::format("insert into b_motions(motion_id,root_id,title,content,quantity,proposer,section,takecoin_num,approve_end_block_num,extern_data,motion_type) "
+                  "values (%s,%s,\'%s\',\'%s\',\'%s\',\'%s\',%s,%s,%s,\'%s\',%d);") % test["id"].as_string()
+                   % test["root_id"].as_string()
+                   % test["title"].as_string()
+                   % test["content"].as_string()
+                   % test["quantity"].as_string()
+                   % test["proposer"].as_string() 
+                   % test["section"].as_string() 
+                   % test["takecoin_num"].as_string() 
+                   % test["approve_end_block_num"].as_string()
+                   % ""
+                   % 0);
+
+                   sqlstr = sqlstr + insert_sql;
+               }
+               else if ( act.name == N(approve) && act.account == N(eosc.budget) ) {
+
+               }
+            }
+      }
+   }
+
+   if ( sqlstr.length() != 0 ) {
+      pqxx::work t(*sql_connection);
+      t.exec(sqlstr);
+      t.commit();
+   }
+
 }
 
 
@@ -381,10 +434,32 @@ pgsql_budget_plugin_impl::~pgsql_budget_plugin_impl() {
    }
 }
 
+void pgsql_budget_plugin_impl::wipe_database() {
+   ilog("pgsql db wipe_database");
+
+   pqxx::work t(*sql_connection);
+
+   t.exec("DROP TABLE IF EXISTS test_tbl;");
+   t.commit();
+   ilog("done wipe_database");
+}
+
 
 void pgsql_budget_plugin_impl::init() {
+   //这个地方可以使用      
+   // std::string table_name = "testtable";
+   // pqxx::work t(*sql_connection);
+
+   // t.exec("CREATE TABLE test_tbl(name VARCHAR(20), signup_date DATE);"
+   //       );
+
+   // t.commit();
+
+   // ilog("xuyapeng add test for create table");
+
    consume_thread = std::thread( [this] {
-      fc::set_os_thread_name( "mongodb" );
+      fc::set_os_thread_name( "pgsql_plugin" );
+      ilog("xuyapeng add for test init");
       consume_blocks();
    } );
 }
@@ -405,65 +480,63 @@ pgsql_budget_plugin::~pgsql_budget_plugin()
 void pgsql_budget_plugin::set_program_options(options_description& cli, options_description& cfg)
 {
    cfg.add_options()
-         ("mongodb-queue-size,q", bpo::value<uint32_t>()->default_value(1024),
-         "The target queue size between nodeos and MongoDB plugin thread.")
-         ("mongodb-abi-cache-size", bpo::value<uint32_t>()->default_value(2048),
-          "The maximum size of the abi cache for serializing data.")
-         ("mongodb-wipe", bpo::bool_switch()->default_value(false),
-         "Required with --replay-blockchain, --hard-replay-blockchain, or --delete-all-blocks to wipe mongo db."
-         "This option required to prevent accidental wipe of mongo db.")
-         ("mongodb-block-start", bpo::value<uint32_t>()->default_value(0),
-         "If specified then only abi data pushed to mongodb until specified block is reached.")
-         ("mongodb-uri,m", bpo::value<std::string>(),
-         "MongoDB URI connection string, see: https://docs.mongodb.com/master/reference/connection-string/."
-               " If not specified then plugin is disabled. Default database 'EOS' is used if not specified in URI."
-               " Example: mongodb://127.0.0.1:27017/EOS")
-         ("mongodb-update-via-block-num", bpo::value<bool>()->default_value(false),
-          "Update blocks/block_state with latest via block number so that duplicates are overwritten.")
-         ("mongodb-store-blocks", bpo::value<bool>()->default_value(true),
-          "Enables storing blocks in mongodb.")
-         ("mongodb-store-block-states", bpo::value<bool>()->default_value(true),
-          "Enables storing block state in mongodb.")
-         ("mongodb-store-transactions", bpo::value<bool>()->default_value(true),
-          "Enables storing transactions in mongodb.")
-         ("mongodb-store-transaction-traces", bpo::value<bool>()->default_value(true),
-          "Enables storing transaction traces in mongodb.")
-         ("mongodb-store-action-traces", bpo::value<bool>()->default_value(true),
-          "Enables storing action traces in mongodb.")
-         ("mongodb-expire-after-seconds", bpo::value<uint32_t>()->default_value(0),
-          "Enables expiring data in mongodb after a specified number of seconds.")
-         ("mongodb-filter-on", bpo::value<vector<string>>()->composing(),
-          "Track actions which match receiver:action:actor. Receiver, Action, & Actor may be blank to include all. i.e. eosio:: or :transfer:  Use * or leave unspecified to include all.")
-         ("mongodb-filter-out", bpo::value<vector<string>>()->composing(),
-          "Do not track actions which match receiver:action:actor. Receiver, Action, & Actor may be blank to exclude all.")
-         ;
+      ("pgsql-wipe", bpo::bool_switch()->default_value(false),
+      "Required with --replay-blockchain, --hard-replay-blockchain, or --delete-all-blocks to wipe pgsql db."
+      "This option required to prevent accidental wipe of pgsql db.")
+      ("pgsql-block-start", bpo::value<uint32_t>()->default_value(0),
+      "If specified then only abi data pushed to mongodb until specified block is reached.")
+      ("pgsql-uri,m", bpo::value<std::string>(),
+      "pgsql URI connection string"
+            " If not specified then plugin is disabled."
+            " Example: dbname=xuyptest hostaddr=127.0.0.1 user=xuyp password=123456 ")
+      ;
 }
 
 void pgsql_budget_plugin::plugin_initialize(const variables_map& options)
 {
    ilog("xuyapeng add for test pgsql_budget_plugin::plugin_initialize");
-   chain_plugin* chain_plug = app().find_plugin<chain_plugin>();
-   EOS_ASSERT( chain_plug, chain::missing_chain_plugin_exception, ""  );
-   auto& chain = chain_plug->chain();
-   my->chain_id.emplace( chain.get_chain_id());
+   if( options.count( "pgsql-uri" )) {
+      if( options.count( "mongodb-block-start" )) {
+         my->start_block_num = options.at( "mongodb-block-start" ).as<uint32_t>();
+      }
 
-   my->accepted_block_connection.emplace( chain.accepted_block.connect( [&]( const chain::block_state_ptr& bs ) {
-      my->accepted_block( bs );
-   } ));
-   my->irreversible_block_connection.emplace(
-         chain.irreversible_block.connect( [&]( const chain::block_state_ptr& bs ) {
-            my->applied_irreversible_block( bs );
-         } ));
-   my->accepted_transaction_connection.emplace(
-         chain.accepted_transaction.connect( [&]( const chain::transaction_metadata_ptr& t ) {
-            my->accepted_transaction( t );
-         } ));
-   my->applied_transaction_connection.emplace(
-         chain.applied_transaction.connect( [&]( std::tuple<const chain::transaction_trace_ptr&, const chain::signed_transaction&> t ) {
-            my->applied_transaction( std::get<0>(t) );
-         } ));
+      if( options.at( "pgsql-wipe" ).as<bool>()) {
+         ilog( "Wiping pgsql database on startup" );
+         my->wipe_database_on_startup = true;
+      }
+      ilog( "Wiping pgsql database on 459" );
+      std::string uri_str = options.at( "pgsql-uri" ).as<std::string>();
+      my->sql_connection = pqxx::connection(uri_str);  
+            ilog( "Wiping pgsql database on 462" );
 
-   my->init();
+      if( my->wipe_database_on_startup ) {
+         my->wipe_database();
+      }
+
+      chain_plugin* chain_plug = app().find_plugin<chain_plugin>();
+      EOS_ASSERT( chain_plug, chain::missing_chain_plugin_exception, ""  );
+      auto& chain = chain_plug->chain();
+      my->chain_id.emplace( chain.get_chain_id());
+
+      my->accepted_block_connection.emplace( chain.accepted_block.connect( [&]( const chain::block_state_ptr& bs ) {
+         my->accepted_block( bs );
+      } ));
+      my->irreversible_block_connection.emplace(
+            chain.irreversible_block.connect( [&]( const chain::block_state_ptr& bs ) {
+               my->applied_irreversible_block( bs );
+            } ));
+      my->accepted_transaction_connection.emplace(
+            chain.accepted_transaction.connect( [&]( const chain::transaction_metadata_ptr& t ) {
+               my->accepted_transaction( t );
+            } ));
+      my->applied_transaction_connection.emplace(
+            chain.applied_transaction.connect( [&]( std::tuple<const chain::transaction_trace_ptr&, const chain::signed_transaction&> t ) {
+               my->applied_transaction( std::get<0>(t) );
+            } ));
+
+      my->init();
+   }
+   
 }
 
 void pgsql_budget_plugin::plugin_startup()
