@@ -29,6 +29,8 @@
 #include <eosio/chain_plugin/chain_plugin.hpp>
 #include <boost/format.hpp>
 
+#include <eosio/pgsql_budget_plugin/budget_type.hpp>
+
 namespace fc { class variant; }
 
 namespace eosio {
@@ -365,10 +367,25 @@ void pgsql_budget_plugin_impl::_process_accepted_block( const chain::block_state
    //ilog("xuyapeng add for test _process_accepted_block++++++++++");
 }
 
+// struct handover_info{
+//    std::vector<account_name>members;
+//    std::string memo;
+
+//    static account_name get_account() {
+//       return N(eosc.budget);
+//    }
+
+//    static action_name get_name() {
+//       return N(handover);
+//    }
+// };
+
+
+
 void pgsql_budget_plugin_impl::_process_irreversible_block(const chain::block_state_ptr& bs) {
    //ilog("xuyapeng add for test _process_accepted_block-------------");
    auto ro_api = app().get_plugin<chain_plugin>().get_read_only_api();
-   //pqxx::work t(*sql_connection);
+   pqxx::work t(*sql_connection);
    std::string sqlstr;
    for( const auto& receipt : bs->block->transactions ) {
       string trx_id_str;
@@ -381,38 +398,99 @@ void pgsql_budget_plugin_impl::_process_irreversible_block(const chain::block_st
             for (auto &act: trx.actions)
             {
                if (act.name == N(propose) && act.account == N(eosc.budget)) {
-                  eosio::chain_apis::read_only::get_table_rows_params motions_get{true,N(eosc.budget),"eosc.budget",N(motions),"","","",10,"","","dec",false,false};
-                  auto result = ro_api.get_table_rows(temp);
-                  auto test = result.rows[0];
+                 pqxx::result res = t.exec("select max(motion_id) from b_motions where motion_type = 0;");
 
-                  std::string insert_sql = str(                  boost::format("insert into b_motions(motion_id,root_id,title,content,quantity,proposer,section,takecoin_num,approve_end_block_num,extern_data,motion_type) "
-                  "values (%s,%s,\'%s\',\'%s\',\'%s\',\'%s\',%s,%s,%s,\'%s\',%d);") % test["id"].as_string()
-                   % test["root_id"].as_string()
-                   % test["title"].as_string()
-                   % test["content"].as_string()
-                   % test["quantity"].as_string()
-                   % test["proposer"].as_string() 
-                   % test["section"].as_string() 
-                   % test["takecoin_num"].as_string() 
-                   % test["approve_end_block_num"].as_string()
-                   % ""
-                   % 0);
+                 std::string Lower = res[0]["max"].c_str();
 
-                   sqlstr = sqlstr + insert_sql;
+                  eosio::chain_apis::read_only::get_table_rows_params motions_get{true,N(eosc.budget),"eosc.budget",N(motions),"",Lower,"",2,"","","dec",true,false};
+                  auto result = ro_api.get_table_rows(motions_get);
+                  auto motion_info = result.rows[result.rows.size() - 1];
+
+                  auto proposer_str = motion_info["proposer"].as_string();
+
+                  std::string insert_sql = str(boost::format("insert into b_motions(motion_id,root_id,title,content,quantity,proposer,section,takecoin_num,approve_end_block_num,extern_data,motion_type) "
+                  "values (%s,%s,\'%s\',\'%s\',\'%s\',\'%s\',%s,%s,%s,\'%s\',%d);") % motion_info["id"].as_string()
+                     % motion_info["root_id"].as_string()
+                     % motion_info["title"].as_string()
+                     % motion_info["content"].as_string()
+                     % motion_info["quantity"].as_string()
+                     % proposer_str 
+                     % motion_info["section"].as_string() 
+                     % motion_info["takecoin_num"].as_string() 
+                     % motion_info["approve_end_block_num"].as_string()
+                     % ""
+                     % 0);
+
+                  t.exec(insert_sql);
+
+                  auto approve_res = t.exec("select max(id) from b_approves where proposer = \'" + proposer_str + "\';");
+                  Lower = approve_res[0]["max"].c_str();
+                  eosio::chain_apis::read_only::get_table_rows_params approves_get{true,N(eosc.budget),proposer_str,N(approvers),"",Lower,"",2,"","","dec",true,false};
+                  auto result_approve = ro_api.get_table_rows(motions_get);
+                  auto approve_info = result.rows[result.rows.size() - 1]["id"].as_string();
+
+                  std::string insert_approve = "insert into b_approves(proposer,id,requested) select \'"+ motion_info["proposer"].as_string()+ "\',"+ motion_info["id"].as_string() +",member from b_members order by member_serial desc limit 1;";
+                  ilog("xuyapeng add for test motions -----------------");
+                  t.exec(insert_approve);
+               }
+               else if ( act.name == N(handover) && act.account == N(eosc.budget) ) {
+                  eosio::chain_apis::read_only::get_table_rows_params members_get{true,N(eosc.budget),"eosc.budget",N(committee),"","","",1,"","","dec",true,false};
+                  auto result = ro_api.get_table_rows(members_get);
+                  auto member_info = result.rows[result.rows.size() - 1]["member"];
+                  
+                  auto member_array = member_info.get_array();
+                  auto isize = member_array.size();
+                  std::string member_str = "";
+                  for ( int i=0; i!= isize; ++i ) {
+                     auto test = member_array[i].as_string();                     
+                     member_str += "\"" + test + "\",";
+                  }
+                  member_str = member_str.substr(0, member_str.length() - 1);
+                  std::string insert_sql = "insert into b_members(member) values(\'{" + member_str + "}\');";
+                  ilog("xuyapeng add for test handover -----------------");
+                  t.exec(insert_sql);
                }
                else if ( act.name == N(approve) && act.account == N(eosc.budget) ) {
-
+                  auto approve_info = act.data_as<budget::approve>();
+                  auto approver = approve_info.approver.to_string();
+                  auto id_str = fc::to_string(approve_info.id);
+                  std::string update_approve_str = "update b_approves set approved = approved || \'{\"" + approver +
+                        "\"}\',requested = array_remove(requested,\'" + approver +"\') where id = "+ id_str +";";
+                  t.exec(update_approve_str);
+                  std::string get_num = "select array_length(approved,1) as lenapp , array_length(requested,1) as lenreq , array_length(unapproved,1) as lenunapp from b_approves where id = "+ id_str +";";
+                  ilog("---xuyapeng add test--- ${d}",("d",get_num));
+                  auto num_res = t.exec(get_num);
+                  auto len_app = num_res[0]["lenapp"].as<std::optional <int >>();
+                  auto len_req = num_res[0]["lenreq"].as<std::optional <int >>();
+                  auto len_unapp = num_res[0]["lenunapp"].as<std::optional <int >>();
+                  int app_num = 0,total_req = 0;
+                  if (len_app.has_value()) {
+                     app_num = len_app.value();
+                     total_req += app_num;
+                  }
+                  if (len_req.has_value()) {
+                     total_req += len_req.value();
+                  }
+                  if (len_unapp.has_value()) {
+                     total_req += len_unapp.value();
+                  }
+                  if ( app_num > total_req * 2 / 3 ) {
+                     //update motions
+                     std::string update_motion = "update b_motions set section = 1 where motion_id = "+ id_str +";";
+                     t.exec(update_motion);
+                  }
+               }
+               else if ( act.name == N(unapprove) && act.account == N(eosc.budget) ) {
+                  auto approve_info = act.data_as<budget::unapprove>();
+                  auto approver = approve_info.approver.to_string();
+                  std::string update_approve_str = "update b_approves set unapproved = unapproved || \'{\"" + approver +
+                        "\"}\',requested = array_remove(requested,\'" + approver +"\') where id = "+ fc::to_string(approve_info.id)+";";
+                  t.exec(update_approve_str);
                }
             }
       }
    }
-
-   if ( sqlstr.length() != 0 ) {
-      pqxx::work t(*sql_connection);
-      t.exec(sqlstr);
-      t.commit();
-   }
-
+   t.commit();
 }
 
 

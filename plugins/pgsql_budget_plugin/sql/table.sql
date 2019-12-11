@@ -13,6 +13,10 @@ CREATE TABLE IF NOT EXISTS b_motions(
     motion_type         INTEGER
 )WITH ( OIDS=FALSE );
 
+CREATE TABLE IF NOT EXISTS b_members(
+    member_serial      SERIAL   PRIMARY KEY,
+    member  TEXT[]
+)WITH ( OIDS=FALSE );
 
 CREATE TABLE IF NOT EXISTS b_approves(
    proposer    TEXT,
