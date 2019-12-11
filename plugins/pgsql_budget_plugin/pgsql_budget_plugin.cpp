@@ -483,9 +483,32 @@ void pgsql_budget_plugin_impl::_process_irreversible_block(const chain::block_st
                else if ( act.name == N(unapprove) && act.account == N(eosc.budget) ) {
                   auto approve_info = act.data_as<budget::unapprove>();
                   auto approver = approve_info.approver.to_string();
+                  auto id_str = fc::to_string(approve_info.id);
                   std::string update_approve_str = "update b_approves set unapproved = unapproved || \'{\"" + approver +
-                        "\"}\',requested = array_remove(requested,\'" + approver +"\') where id = "+ fc::to_string(approve_info.id)+";";
+                        "\"}\',requested = array_remove(requested,\'" + approver +"\') where id = "+ id_str +";";
                   t.exec(update_approve_str);
+                  std::string get_num = "select array_length(approved,1) as lenapp , array_length(requested,1) as lenreq , array_length(unapproved,1) as lenunapp from b_approves where id = "+ id_str +";";
+                  ilog("---xuyapeng add test--- ${d}",("d",get_num));
+                  auto num_res = t.exec(get_num);
+                  auto len_app = num_res[0]["lenapp"].as<std::optional <int >>();
+                  auto len_req = num_res[0]["lenreq"].as<std::optional <int >>();
+                  auto len_unapp = num_res[0]["lenunapp"].as<std::optional <int >>();
+                  int unapp_num = 0,total_req = 0;
+                  if (len_app.has_value()) {
+                     total_req += len_app.value();
+                  }
+                  if (len_req.has_value()) {
+                     total_req += len_req.value();
+                  }
+                  if (len_unapp.has_value()) {
+                     unapp_num = len_unapp.value();
+                     total_req += unapp_num;
+                  }
+                  if ( unapp_num > total_req  / 3 ) {
+                     //update motions
+                     std::string update_motion = "update b_motions set section = 2 where motion_id = "+ id_str +";";
+                     t.exec(update_motion);
+                  }
                }
             }
       }
