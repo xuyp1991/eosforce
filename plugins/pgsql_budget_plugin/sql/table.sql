@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS b_takecoins(
    requested          TEXT[],
    approved            TEXT[],
    unapproved          TEXT[],
+   takecoin_type        INTEGER,
    PRIMARY KEY(proposer, id)
 )WITH ( OIDS=FALSE );
 

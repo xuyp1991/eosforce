@@ -430,7 +430,7 @@ void pgsql_budget_plugin_impl::_process_irreversible_block(const chain::block_st
                   auto approve_info = result.rows[result.rows.size() - 1]["id"].as_string();
 
                   std::string insert_approve = "insert into b_approves(proposer,id,requested) select \'"+ motion_info["proposer"].as_string()+ "\',"+ motion_info["id"].as_string() +",member from b_members order by member_serial desc limit 1;";
-                  ilog("xuyapeng add for test motions -----------------");
+                  //ilog("xuyapeng add for test motions -----------------");
                   t.exec(insert_approve);
                }
                else if ( act.name == N(handover) && act.account == N(eosc.budget) ) {
@@ -447,7 +447,7 @@ void pgsql_budget_plugin_impl::_process_irreversible_block(const chain::block_st
                   }
                   member_str = member_str.substr(0, member_str.length() - 1);
                   std::string insert_sql = "insert into b_members(member) values(\'{" + member_str + "}\');";
-                  ilog("xuyapeng add for test handover -----------------");
+                  //ilog("xuyapeng add for test handover -----------------");
                   t.exec(insert_sql);
                }
                else if ( act.name == N(approve) && act.account == N(eosc.budget) ) {
@@ -510,6 +510,35 @@ void pgsql_budget_plugin_impl::_process_irreversible_block(const chain::block_st
                      t.exec(update_motion);
                   }
                }
+               else if ( act.name == N(takecoin) && act.account == N(eosc.budget) ) {
+                  auto takecoin_info = act.data_as<budget::takecoin>();
+                  auto proposer_str = takecoin_info.proposer.to_string();
+                  auto id_str = fc::to_string(takecoin_info.montion_id);
+                  pqxx::result res = t.exec("select max(id) from b_takecoins where proposer = \'" + proposer_str +"\';");
+                  std::string Lower = res[0]["max"].c_str();
+
+                  eosio::chain_apis::read_only::get_table_rows_params takecoins_get{true,N(eosc.budget),proposer_str,N(takecoins),"",Lower,"",2,"","","dec",true,false};
+                  auto result = ro_api.get_table_rows(takecoins_get);
+                  auto takecoin_tbl_info = result.rows[result.rows.size() - 1];
+                  auto takecoin_id = takecoin_tbl_info["id"].as_string();
+                  
+                  std::string insert_takecoin =  str(boost::format("insert into b_takecoins(proposer,id,motion_id,content,quantity,receiver,section,end_block_num,takecoin_type) " 
+                   "values (\'%s\',%s,%s,\'%s\',\'%s\',\'%s\',%s,%s,%s);" )
+                  % proposer_str
+                  % takecoin_id
+                  % id_str
+                  % takecoin_info.content
+                  % takecoin_info.quantity.to_string()
+                  % proposer_str
+                  % takecoin_tbl_info["section"].as_string()
+                  % takecoin_tbl_info["end_block_num"].as_string()
+                  % '0');
+                  ilog("xuyapeng add for test takecoin ${tt}",("tt",insert_takecoin));
+                  t.exec(insert_takecoin);
+                  std::string update_takecoin = "update b_takecoins set (requested) = (select member from b_members order by member_serial desc limit 1);";
+                  t.exec(update_takecoin);
+               }
+
             }
       }
    }
