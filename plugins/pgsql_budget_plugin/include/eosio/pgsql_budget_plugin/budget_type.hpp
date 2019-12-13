@@ -53,8 +53,40 @@ struct takecoin{
    }
 };
 
+struct agreecoin{
+   account_name   approver;
+   account_name   proposer;
+   uint64_t       id;
+   std::string    memo;
+
+   static account_name get_account() {
+      return budget_account_name;
+   }
+
+   static action_name get_name() {
+      return N(agreecoin);
+   }
+};
+
+struct unagreecoin{
+   account_name   approver;
+   account_name   proposer;
+   uint64_t       id;
+   std::string    memo;
+
+   static account_name get_account() {
+      return budget_account_name;
+   }
+
+   static action_name get_name() {
+      return N(unagreecoin);
+   }
+};
+
 }  }
 
 FC_REFLECT( eosio::budget::approve                           , (approver)(id)(memo) )
 FC_REFLECT( eosio::budget::unapprove                           , (approver)(id)(memo) )
 FC_REFLECT( eosio::budget::takecoin                           , (proposer)(montion_id)(content)(quantity) )
+FC_REFLECT( eosio::budget::agreecoin                           , (approver)(proposer)(id)(memo) )
+FC_REFLECT( eosio::budget::unagreecoin                           , (approver)(proposer)(id)(memo) )

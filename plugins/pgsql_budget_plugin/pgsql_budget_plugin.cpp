@@ -538,6 +538,26 @@ void pgsql_budget_plugin_impl::_process_irreversible_block(const chain::block_st
                   std::string update_takecoin = "update b_takecoins set (requested) = (select member from b_members order by member_serial desc limit 1);";
                   t.exec(update_takecoin);
                }
+               else if ( act.name == N(agreecoin) && act.account == N(eosc.budget) ) {
+                  auto agreecoin_info = act.data_as<budget::agreecoin>();
+                  auto approver = agreecoin_info.approver.to_string();
+                  auto id_str = fc::to_string(agreecoin_info.id);
+                  auto proposer = agreecoin_info.proposer.to_string();
+                  std::string update_takecoin_str = "update b_takecoins set requested = array_remove(requested,\'" 
+                     + approver + "\'),approved = approved || \'{\"" 
+                     + approver + "\"}\' where  proposer = \'" + proposer + "\' and  id = " + id_str + ";";
+                  t.exec(update_takecoin_str);
+               }
+               else if ( act.name == N(unagreecoin) && act.account == N(eosc.budget) ) {
+                  auto agreecoin_info = act.data_as<budget::unagreecoin>();
+                  auto approver = agreecoin_info.approver.to_string();
+                  auto id_str = fc::to_string(agreecoin_info.id);
+                  auto proposer = agreecoin_info.proposer.to_string();
+                  std::string update_takecoin_str = "update b_takecoins set requested = array_remove(requested,\'" 
+                     + approver + "\'),unapproved = unapproved || \'{\"" 
+                     + approver + "\"}\' where  proposer = \'" + proposer + "\' and  id = " + id_str + ";";
+                  t.exec(update_takecoin_str);
+               }
 
             }
       }
