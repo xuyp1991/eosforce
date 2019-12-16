@@ -430,7 +430,6 @@ void pgsql_budget_plugin_impl::_process_irreversible_block(const chain::block_st
                   auto approve_info = result.rows[result.rows.size() - 1]["id"].as_string();
 
                   std::string insert_approve = "insert into b_approves(proposer,id,requested) select \'"+ motion_info["proposer"].as_string()+ "\',"+ motion_info["id"].as_string() +",member from b_members order by member_serial desc limit 1;";
-                  //ilog("xuyapeng add for test motions -----------------");
                   t.exec(insert_approve);
                }
                else if ( act.name == N(handover) && act.account == N(eosc.budget) ) {
@@ -447,7 +446,6 @@ void pgsql_budget_plugin_impl::_process_irreversible_block(const chain::block_st
                   }
                   member_str = member_str.substr(0, member_str.length() - 1);
                   std::string insert_sql = "insert into b_members(member) values(\'{" + member_str + "}\');";
-                  //ilog("xuyapeng add for test handover -----------------");
                   t.exec(insert_sql);
                }
                else if ( act.name == N(approve) && act.account == N(eosc.budget) ) {
@@ -458,7 +456,6 @@ void pgsql_budget_plugin_impl::_process_irreversible_block(const chain::block_st
                         "\"}\',requested = array_remove(requested,\'" + approver +"\') where id = "+ id_str +";";
                   t.exec(update_approve_str);
                   std::string get_num = "select array_length(approved,1) as lenapp , array_length(requested,1) as lenreq , array_length(unapproved,1) as lenunapp from b_approves where id = "+ id_str +";";
-                  ilog("---xuyapeng add test--- ${d}",("d",get_num));
                   auto num_res = t.exec(get_num);
                   auto len_app = num_res[0]["lenapp"].as<std::optional <int >>();
                   auto len_req = num_res[0]["lenreq"].as<std::optional <int >>();
@@ -488,7 +485,6 @@ void pgsql_budget_plugin_impl::_process_irreversible_block(const chain::block_st
                         "\"}\',requested = array_remove(requested,\'" + approver +"\') where id = "+ id_str +";";
                   t.exec(update_approve_str);
                   std::string get_num = "select array_length(approved,1) as lenapp , array_length(requested,1) as lenreq , array_length(unapproved,1) as lenunapp from b_approves where id = "+ id_str +";";
-                  ilog("---xuyapeng add test--- ${d}",("d",get_num));
                   auto num_res = t.exec(get_num);
                   auto len_app = num_res[0]["lenapp"].as<std::optional <int >>();
                   auto len_req = num_res[0]["lenreq"].as<std::optional <int >>();
@@ -547,6 +543,35 @@ void pgsql_budget_plugin_impl::_process_irreversible_block(const chain::block_st
                      + approver + "\'),approved = approved || \'{\"" 
                      + approver + "\"}\' where  proposer = \'" + proposer + "\' and  id = " + id_str + ";";
                   t.exec(update_takecoin_str);
+                  std::string get_num = "select array_length(approved,1) as lenapp , array_length(requested,1) as lenreq , array_length(unapproved,1) as lenunapp,motion_id from b_takecoins where proposer = \'" + proposer + "\' and  id = " + id_str + ";";
+                  auto num_res = t.exec(get_num);
+                  auto len_app = num_res[0]["lenapp"].as<std::optional <int >>();
+                  auto len_req = num_res[0]["lenreq"].as<std::optional <int >>();
+                  auto len_unapp = num_res[0]["lenunapp"].as<std::optional <int >>();
+                  int app_num = 0,total_req = 0;
+                  if (len_app.has_value()) {
+                     app_num = len_app.value();
+                     total_req += app_num;
+                  }
+                  if (len_req.has_value()) {
+                     total_req += len_req.value();
+                  }
+                  if (len_unapp.has_value()) {
+                     total_req += len_unapp.value();
+                  }
+                  if ( app_num > total_req * 2 / 3 ) {
+                     //update takecoins
+                     std::string update_takecoin = "update b_takecoins set section = 1 where proposer = \'" + proposer + "\' and  id = " + id_str + ";";
+                     t.exec(update_takecoin);
+                     //update motions
+                     std::string Lower = num_res[0]["motion_id"].c_str();
+                     eosio::chain_apis::read_only::get_table_rows_params motions_get{true,N(eosc.budget),"eosc.budget",N(motions),"",Lower,"",2,"","","dec",true,false};
+                     auto result = ro_api.get_table_rows(motions_get);
+                     auto motion_info = result.rows[0];
+                     auto quantity_str = motion_info["quantity"].as_string();
+                     std::string update_motion = "update b_motions set quantity = \""+ quantity_str +"\" where motion_id = "+ id_str +";";
+                     t.exec(update_motion);
+                  }
                }
                else if ( act.name == N(unagreecoin) && act.account == N(eosc.budget) ) {
                   auto agreecoin_info = act.data_as<budget::unagreecoin>();
@@ -557,6 +582,27 @@ void pgsql_budget_plugin_impl::_process_irreversible_block(const chain::block_st
                      + approver + "\'),unapproved = unapproved || \'{\"" 
                      + approver + "\"}\' where  proposer = \'" + proposer + "\' and  id = " + id_str + ";";
                   t.exec(update_takecoin_str);
+                  std::string get_num = "select array_length(approved,1) as lenapp , array_length(requested,1) as lenreq , array_length(unapproved,1) as lenunapp from b_takecoins where proposer = \'" + proposer + "\' and  id = " + id_str + ";";
+                  auto num_res = t.exec(get_num);
+                  auto len_app = num_res[0]["lenapp"].as<std::optional <int >>();
+                  auto len_req = num_res[0]["lenreq"].as<std::optional <int >>();
+                  auto len_unapp = num_res[0]["lenunapp"].as<std::optional <int >>();
+                  int unapp_num = 0,total_req = 0;
+                  if (len_app.has_value()) {
+                     total_req += len_app.value();
+                  }
+                  if (len_req.has_value()) {
+                     total_req += len_req.value();
+                  }
+                  if (len_unapp.has_value()) {
+                     unapp_num = len_unapp.value();
+                     total_req += unapp_num;
+                  }
+                  if ( unapp_num > total_req  / 3 ) {
+                     //update motions
+                     std::string update_motion = "update b_takecoins set section = 2 where proposer = \'" + proposer + "\' and  id = " + id_str + ";";
+                     t.exec(update_motion);
+                  }
                }
 
             }
