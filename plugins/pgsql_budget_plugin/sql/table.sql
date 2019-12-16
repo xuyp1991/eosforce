@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS b_approves(
    requested          TEXT[],
    approved            TEXT[],
    unapproved          TEXT[],
+   approve_type         INTEGER,
    PRIMARY KEY(proposer, id)
 )WITH ( OIDS=FALSE );
 
@@ -48,3 +49,13 @@ CREATE TABLE IF NOT EXISTS t_test(
     id      BIGSERIAL   PRIMARY KEY,
     memo       TEXT
 )WITH ( OIDS=FALSE );
+
+/*
+delete from b_motions;
+delete from b_members;
+delete from b_approves;
+delete from b_takecoins;
+*/
+-- 
+-- 
+-- 
