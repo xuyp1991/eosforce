@@ -398,16 +398,12 @@ void pgsql_budget_plugin_impl::_process_irreversible_block(const chain::block_st
             for (auto &act: trx.actions)
             {
                if (act.name == N(propose) && act.account == N(eosc.budget)) {
-                 pqxx::result res = t.exec("select max(motion_id) from b_motions where motion_type = 0;");
-
-                 std::string Lower = res[0]["max"].c_str();
-
+                  pqxx::result res = t.exec("select max(motion_id) from b_motions where motion_type = 0;");
+                  std::string Lower = res[0]["max"].c_str();
                   eosio::chain_apis::read_only::get_table_rows_params motions_get{true,N(eosc.budget),"eosc.budget",N(motions),"",Lower,"",2,"","","dec",true,false};
                   auto result = ro_api.get_table_rows(motions_get);
                   auto motion_info = result.rows[result.rows.size() - 1];
-
                   auto proposer_str = motion_info["proposer"].as_string();
-
                   std::string insert_sql = str(boost::format("insert into b_motions(motion_id,root_id,title,content,quantity,proposer,section,takecoin_num,approve_end_block_num,extern_data,motion_type) "
                   "values (%s,%s,\'%s\',\'%s\',\'%s\',\'%s\',%s,%s,%s,\'%s\',%d);") % motion_info["id"].as_string()
                      % motion_info["root_id"].as_string()
@@ -420,15 +416,12 @@ void pgsql_budget_plugin_impl::_process_irreversible_block(const chain::block_st
                      % motion_info["approve_end_block_num"].as_string()
                      % ""
                      % 0);
-
                   t.exec(insert_sql);
-
                   auto approve_res = t.exec("select max(id) from b_approves where proposer = \'" + proposer_str + "\';");
                   Lower = approve_res[0]["max"].c_str();
                   eosio::chain_apis::read_only::get_table_rows_params approves_get{true,N(eosc.budget),proposer_str,N(approvers),"",Lower,"",2,"","","dec",true,false};
                   auto result_approve = ro_api.get_table_rows(motions_get);
                   auto approve_info = result.rows[result.rows.size() - 1]["id"].as_string();
-
                   std::string insert_approve = "insert into b_approves(proposer,id,requested) select \'"+ motion_info["proposer"].as_string()+ "\',"+ motion_info["id"].as_string() +",member from b_members order by member_serial desc limit 1;";
                   t.exec(insert_approve);
                }
@@ -436,7 +429,6 @@ void pgsql_budget_plugin_impl::_process_irreversible_block(const chain::block_st
                   eosio::chain_apis::read_only::get_table_rows_params members_get{true,N(eosc.budget),"eosc.budget",N(committee),"","","",1,"","","dec",true,false};
                   auto result = ro_api.get_table_rows(members_get);
                   auto member_info = result.rows[result.rows.size() - 1]["member"];
-                  
                   auto member_array = member_info.get_array();
                   auto isize = member_array.size();
                   std::string member_str = "";
@@ -529,7 +521,7 @@ void pgsql_budget_plugin_impl::_process_irreversible_block(const chain::block_st
                   % takecoin_tbl_info["section"].as_string()
                   % takecoin_tbl_info["end_block_num"].as_string()
                   % '0');
-                  ilog("xuyapeng add for test takecoin ${tt}",("tt",insert_takecoin));
+                  //ilog("xuyapeng add for test takecoin ${tt}",("tt",insert_takecoin));
                   t.exec(insert_takecoin);
                   std::string update_takecoin = "update b_takecoins set (requested) = (select member from b_members order by member_serial desc limit 1);";
                   t.exec(update_takecoin);
@@ -569,7 +561,9 @@ void pgsql_budget_plugin_impl::_process_irreversible_block(const chain::block_st
                      auto result = ro_api.get_table_rows(motions_get);
                      auto motion_info = result.rows[0];
                      auto quantity_str = motion_info["quantity"].as_string();
-                     std::string update_motion = "update b_motions set quantity = \""+ quantity_str +"\" where motion_id = "+ id_str +";";
+                     
+                     std::string update_motion = "update b_motions set quantity = \'"+ quantity_str +"\' where motion_id = "+ id_str +";";
+                     //ilog("xuyapeng add for test set quantity --- ${tt}",("tt",update_motion));
                      t.exec(update_motion);
                   }
                }
@@ -604,7 +598,37 @@ void pgsql_budget_plugin_impl::_process_irreversible_block(const chain::block_st
                      t.exec(update_motion);
                   }
                }
+               else if ( act.name == N(turndown) && act.account == N(eosc.budget) ) {
+                  ilog("xuyapeng add for test turndown--------------------");
+                  auto turndown_info = act.data_as<budget::turndown>();
+                  auto id_str = fc::to_string(turndown_info.id);
+                  std::string update_motion = "update b_motions set section = 3 where motion_id = "+ id_str +";";
+                  t.exec(update_motion);
+               }
+               else if ( act.name == N(closemotion) && act.account == N(eosc.budget) ) {
+                  ilog("xuyapeng add for test closemotion--------------------");
+                  auto closemotion_info = act.data_as<budget::closemotion>();
+                  auto id_str = fc::to_string(closemotion_info.id);
+                  // get proposer
+                  std::string get_proposer_str = "select proposer from b_motions where motion_id = "+ id_str +";";
+                  auto proposer_res = t.exec(get_proposer_str);
+                  auto proposer = proposer_res[0]["proposer"].c_str();
 
+                  std::string update_motion = "update b_motions set motion_type = 1 where motion_id = "+ id_str +";";
+                  t.exec(update_motion);
+                  // update approve
+                  std::string update_approve = "update b_approves set approve_type = 1 where id = "+ id_str +" and proposer = \'" + proposer +"\';";
+                  //ilog("xuyapeng add for test ${tt}",("tt",update_approve));
+                  t.exec(update_approve);
+               }
+               else if ( act.name == N(closecoin) && act.account == N(eosc.budget) ) {
+                  ilog("xuyapeng add for test closecoin--------------------");
+                  auto closecoin_info = act.data_as<budget::closecoin>();
+                  auto proposer = closecoin_info.proposer.to_string();
+                  auto id_str = fc::to_string(closecoin_info.id);
+                  std::string update_motion = "update b_takecoins set takecoin_type = 1 where proposer = \'" + proposer + "\' and  id = " + id_str + ";";
+                  t.exec(update_motion);
+               }
             }
       }
    }

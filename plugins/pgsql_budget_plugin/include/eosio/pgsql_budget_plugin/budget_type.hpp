@@ -83,6 +83,46 @@ struct unagreecoin{
    }
 };
 
+struct turndown{
+   uint64_t       id;
+   std::string    memo;
+
+   static account_name get_account() {
+      return budget_account_name;
+   }
+
+   static action_name get_name() {
+      return N(turndown);
+   }
+};
+
+struct closemotion{
+   uint64_t       id;
+   std::string    memo;
+
+   static account_name get_account() {
+      return budget_account_name;
+   }
+
+   static action_name get_name() {
+      return N(closemotion);
+   }
+};
+
+struct closecoin{
+   account_name   proposer;
+   uint64_t       id;
+   std::string    memo;
+
+   static account_name get_account() {
+      return budget_account_name;
+   }
+
+   static action_name get_name() {
+      return N(closecoin);
+   }
+};
+
 }  }
 
 FC_REFLECT( eosio::budget::approve                           , (approver)(id)(memo) )
@@ -90,3 +130,6 @@ FC_REFLECT( eosio::budget::unapprove                           , (approver)(id)(
 FC_REFLECT( eosio::budget::takecoin                           , (proposer)(montion_id)(content)(quantity) )
 FC_REFLECT( eosio::budget::agreecoin                           , (approver)(proposer)(id)(memo) )
 FC_REFLECT( eosio::budget::unagreecoin                           , (approver)(proposer)(id)(memo) )
+FC_REFLECT( eosio::budget::turndown                           , (id)(memo) )
+FC_REFLECT( eosio::budget::closemotion                           , (id)(memo) )
+FC_REFLECT( eosio::budget::closecoin                           , (proposer)(id)(memo) )
